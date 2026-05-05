@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "digest": "node scripts/operator-digest.mjs"
+    "digest": "node scripts/operator-digest.mjs",
+    "check:syntax": "node --check server.mjs && node --check scripts/operator-digest.mjs && node --check scripts/local-openclaw-bridge.mjs"
   }
 }

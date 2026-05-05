@@ -1,0 +1,21 @@
+ClawBell is a reusable public-safe website chat for operators who want a narrow public agent surface without exposing their private workspace.
+
+Start here:
+- README.md: public product overview, trust boundary, quickstart, docs map
+- AGENTS.md: repo rules and coding-agent safety boundary
+- INSTALL_FOR_AGENTS.md: setup flow and bridge choice
+- CLAWBELL_VERIFY.md: post-deploy smoke tests
+
+Important constraints:
+- Canonical repo is https://github.com/kenseals/clawbell
+- This repo is generic product docs, not Ken's personal-site config
+- Public ClawBell must call only a narrow authenticated bridge, never a full OpenClaw gateway
+- Visitors are never trusted as operator/admin
+
+Useful files:
+- bridge-recipes/cloudflare-tunnel.md
+- bridge-recipes/tailscale-funnel.md
+- bridge-recipes/custom-https-bridge.md
+- server.mjs
+- scripts/local-openclaw-bridge.mjs
+- scripts/operator-digest.mjs

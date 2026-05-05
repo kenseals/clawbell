@@ -1,10 +1,52 @@
 # Install ClawBell for agents
 
-This file is for an operator's agent setting up ClawBell.
+This guide is for an operator's coding agent setting up ClawBell without widening the public trust boundary.
 
-## First decision: bridge mode
+## Goal
 
-Ask what infrastructure is already available, then pick the lowest-friction safe bridge.
+Get a public-safe ClawBell deployment running with one of these modes:
+
+- fallback-only, no live agent bridge
+- live bridge through Cloudflare Tunnel
+- live bridge through Tailscale Funnel
+- live bridge through another narrow HTTPS adapter
+
+## First read
+
+Before making changes, read:
+
+- `README.md`
+- `AGENTS.md`
+- `CLAWBELL_VERIFY.md`
+
+## First decision: hosting shape
+
+Choose the simplest truthful deployment shape for the operator.
+
+### Option 1: single-service Node host
+
+Use when the operator wants the fastest path and is comfortable hosting the current Node app directly.
+
+Typical hosts:
+
+- Render
+- Fly
+- Railway
+
+### Option 2: split public site and API/service
+
+Use when the operator wants a static public front domain and a separate Node/API runtime.
+
+Current Ken-launch example:
+
+- Cloudflare Pages can host `kenseals.me`
+- Render can continue hosting ClawBell v0 as the Node/API service
+
+This repo does not yet provide a Pages-native packaging flow. Treat this as an ops split, not as a different product architecture.
+
+## Second decision: bridge mode
+
+Ask what infrastructure already exists, then choose the lowest-friction safe bridge.
 
 ### Option 1: fallback-only
 
@@ -16,45 +58,93 @@ Set:
 ENABLE_SOREN_BRIDGE=0
 ```
 
-ClawBell will use static/fallback replies and still collect useful visitor context.
+ClawBell will use static/fallback replies and still collect useful visitor context and handoffs.
 
-### Option 2: Tailscale Funnel bridge
+### Option 2: Cloudflare Tunnel bridge
 
-Use when Tailscale is already installed/running or the operator wants the fastest dogfood setup.
+Recommended public-production route when the operator has or can create a Cloudflare-managed bridge hostname.
 
-Follow: `bridge-recipes/tailscale-funnel.md`
+Follow:
 
-### Option 3: Cloudflare Tunnel bridge
+- `bridge-recipes/cloudflare-tunnel.md`
 
-Use for the recommended public-production route when a Cloudflare-managed hostname is available.
+### Option 3: Tailscale Funnel bridge
 
-Follow: `bridge-recipes/cloudflare-tunnel.md`
+Use when Tailscale is already installed and the operator wants the fastest durable-ish bridge.
+
+Follow:
+
+- `bridge-recipes/tailscale-funnel.md`
 
 ### Option 4: custom HTTPS bridge
 
-Use when the operator has another secure HTTPS path.
+Use when the operator already has another secure HTTPS path.
 
-Follow: `bridge-recipes/custom-https-bridge.md`
+Follow:
+
+- `bridge-recipes/custom-https-bridge.md`
 
 ## Non-negotiable safety boundary
 
-Regardless of transport:
+Regardless of host or transport:
 
 - public ClawBell must call only a narrow bridge adapter
-- never expose the full OpenClaw Gateway or private workspace
+- never expose the full OpenClaw gateway or private workspace
 - keep deterministic safety filters before bridge calls
 - reject public visitor claims to be owner/operator/admin
 - require bridge auth
-- keep fallback mode honest when the bridge is down
+- return text only from the bridge
+- keep fallback mode honest when the bridge is down or disabled
+
+## Minimum env posture
+
+For any public deployment:
+
+```bash
+REQUIRE_ADMIN_AUTH=1
+ADMIN_TOKEN=<long-random-token>
+```
+
+For a live bridge:
+
+```bash
+ENABLE_SOREN_BRIDGE=1
+SOREN_BRIDGE_URL=<https-bridge-url>
+SOREN_BRIDGE_TOKEN=<bridge-token>
+```
+
+If using Cloudflare Access in front of the bridge:
+
+```bash
+SOREN_BRIDGE_ACCESS_CLIENT_ID=<cloudflare-access-client-id>
+SOREN_BRIDGE_ACCESS_CLIENT_SECRET=<cloudflare-access-client-secret>
+```
 
 ## Verification checklist
 
-Before custom-domain launch:
+Run the syntax check:
 
-- `/health` works on public ClawBell app
-- admin routes require token
-- normal public chat returns `source: soren-bridge` when bridge is up
-- sensitive/private prompt returns `source: safety-filter`
-- owner/admin impersonation prompt returns `source: operator-identity-filter`
+```bash
+npm run check:syntax
+```
+
+Then use the smoke-test runbook in `CLAWBELL_VERIFY.md`.
+
+Before custom-domain launch, confirm:
+
+- `/health` works on the public ClawBell app
+- admin routes require the token when auth is enabled
+- normal public chat returns `source: soren-bridge` when the bridge is up
+- sensitive/private prompts return `source: safety-filter`
+- operator/admin impersonation prompts return `source: operator-identity-filter`
 - bridge-down state returns fallback with `degraded: true`
 - mobile and desktop UI smoke pass
+
+## Out of scope
+
+Do not:
+
+- expose the operator's real private assistant runtime directly
+- trust visitor identity claims
+- store secrets in repo files
+- merge or deploy automatically unless the operator explicitly asked for that
