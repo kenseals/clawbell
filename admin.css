@@ -12,6 +12,7 @@ p { color:var(--muted); line-height:1.45; }
 .preview, button { min-height:42px; border:0; border-radius:999px; padding:.65rem .9rem; background:var(--blue); color:white; text-decoration:none; font:inherit; font-weight:800; cursor:pointer; }
 .grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(20rem,.8fr); gap:1rem; align-items:start; }
 .card { padding:1rem; }
+.usage-card { margin-bottom:1rem; }
 .card-head { display:flex; justify-content:space-between; gap:1rem; align-items:center; margin-bottom:1rem; }
 label { display:grid; gap:.35rem; margin:.75rem 0; color:#334155; font-size:.9rem; font-weight:800; }
 label span { color:var(--muted); font-weight:600; }
@@ -19,17 +20,23 @@ input, textarea { width:100%; border:1px solid #cbd5e1; border-radius:.9rem; pad
 textarea { resize:vertical; }
 .status { min-height:1.2rem; font-weight:750; }
 .conversation-list { display:grid; gap:.75rem; }
+.usage-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; }
+.stat { padding:.9rem; border:1px solid var(--line); border-radius:1rem; background:#f8fafc; }
+.stat strong { display:block; font-size:1.8rem; letter-spacing:-.05em; }
+.stat span { display:block; color:var(--muted); font-weight:850; text-transform:uppercase; letter-spacing:.06em; font-size:.72rem; }
+.stat small { display:block; margin-top:.35rem; color:var(--muted); line-height:1.35; }
 .event { padding:.9rem; border:1px solid var(--line); border-radius:1rem; background:#f8fafc; }
 .event time { color:var(--muted); font-size:.78rem; font-weight:750; }
 .event strong { display:block; margin:.3rem 0; }
 .event p { margin:.25rem 0; }
 .badge { display:inline-block; margin-top:.45rem; padding:.25rem .5rem; border-radius:999px; background:#ecfdf5; color:#047857; font-size:.75rem; font-weight:850; }
 .badge.warn { background:#fff7ed; color:#c2410c; }
-@media (max-width:860px) { .hero { align-items:start; flex-direction:column; } .grid { grid-template-columns:1fr; } }
+@media (max-width:860px) { .hero { align-items:start; flex-direction:column; } .grid { grid-template-columns:1fr; } .usage-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:560px) {
   .shell { width:min(100% - .75rem, 1180px); }
   .card-head { align-items:flex-start; flex-direction:column; }
   .card-head button, .preview { width:100%; }
   textarea { min-height:7rem; line-height:1.4; }
   #welcomeMessage { min-height:8.5rem; }
+  .usage-grid { grid-template-columns:1fr; }
 }

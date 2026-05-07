@@ -13,6 +13,8 @@ const form = document.querySelector('#configForm');
 const statusEl = document.querySelector('#saveStatus');
 const list = document.querySelector('#conversationList');
 const refresh = document.querySelector('#refresh');
+const usageStats = document.querySelector('#usageStats');
+const refreshUsage = document.querySelector('#refreshUsage');
 const adminToken = new URLSearchParams(window.location.search).get('token') || '';
 
 function lines(value) { return value.split('\n').map(v => v.trim()).filter(Boolean); }
@@ -95,11 +97,39 @@ async function loadConversations() {
   renderConversations(data.conversations || []);
 }
 
+function statCard(label, value, hint = '') {
+  return `<article class="stat"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span>${hint ? `<small>${escapeHtml(hint)}</small>` : ''}</article>`;
+}
+
+function renderUsage(data) {
+  usageStats.innerHTML = [
+    statCard('conversations', data.conversations ?? data.events ?? 0),
+    statCard('live bridge calls', data.liveBridgeCalls ?? data.liveCalls ?? 0),
+    statCard('fallback calls', data.fallbackCalls ?? 0),
+    statCard('filtered/refused', data.filteredCalls ?? 0),
+    statCard('throttled', data.throttledCalls ?? 0, Object.entries(data.throttleReasons || {}).map(([k, v]) => `${k}: ${v}`).join(', ')),
+    statCard('bridge errors', data.bridgeErrors ?? 0),
+    statCard('handoffs / note intent', data.handoffs ?? data.noteIntent ?? 0),
+    statCard('approx chars', data.approxChars ?? 0, 'proxy for token usage, not billing exact')
+  ].join('');
+}
+
+async function loadUsage() {
+  const res = await fetch('/api/usage', { headers: adminHeaders() });
+  if (!res.ok) {
+    usageStats.innerHTML = '<p>Usage unavailable.</p>';
+    return;
+  }
+  renderUsage(await res.json());
+}
+
 function escapeHtml(text) {
   return String(text).replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c]));
 }
 
 form.addEventListener('submit', saveConfig);
 refresh.addEventListener('click', loadConversations);
+refreshUsage.addEventListener('click', loadUsage);
 loadConfig();
+loadUsage();
 loadConversations();

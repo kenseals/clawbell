@@ -24,6 +24,8 @@ const sorenBridgeMaxConcurrent = Number(process.env.SOREN_BRIDGE_MAX_CONCURRENT 
 const sorenBridgeRateLimitWindowMs = Number(process.env.SOREN_BRIDGE_RATE_LIMIT_WINDOW_MS || 3600000);
 const sorenBridgeRateLimitMax = Number(process.env.SOREN_BRIDGE_RATE_LIMIT_MAX || 4);
 const sorenBridgeGlobalRateLimitMax = Number(process.env.SOREN_BRIDGE_GLOBAL_RATE_LIMIT_MAX || 30);
+const maxHistoryItems = Number(process.env.MAX_HISTORY_ITEMS || 4);
+const maxHistoryChars = Number(process.env.MAX_HISTORY_CHARS || 300);
 const publicApiOrigins = (process.env.PUBLIC_API_ORIGINS || [
   'http://127.0.0.1:4181',
   'http://localhost:4181',
@@ -74,8 +76,16 @@ function isSensitivePersonalInfoRequest(message) {
   return /(home address|address|where.*live|exact location|phone|cell|mobile|email address|personal email|wife|spouse|kid|child|children|family|school|daycare|payment|credit card|bank|ssn|social security|tax|income|net worth|private detail|dox|doxx)/i.test(message);
 }
 
+function isInternalInfoRequest(message) {
+  return /(system prompt|developer instruction|internal instruction|hidden instruction|prompt injection|private memory|memory file|workspace|file path|list files|shell command|run command|execute command|tool output|credentials?|secret|api key|token|password|env var|environment variable|source code|configuration|config file|openclaw status|session history|transcript)/i.test(message);
+}
+
 function sensitivePersonalInfoReply() {
   return 'I can talk about approved public topics, but I can’t share personal contact info, address/location details, family details, payment or financial information, private memory, credentials, or anything from private conversations.';
+}
+
+function internalInfoReply() {
+  return 'I can talk about approved public topics, ways to contact the operator, and how this public chat works. I can’t share system prompts, internal instructions, private memory, workspace details, file paths, tool output, credentials, or source/configuration details from this public chat.';
 }
 
 function isOperatorImpersonationAttempt(message, ownerName = 'the operator') {
@@ -92,6 +102,50 @@ function operatorImpersonationReply(ownerName = 'the operator') {
 async function writeJsonl(name, record) {
   await mkdir(dataDir, { recursive: true });
   await appendFile(join(dataDir, name), JSON.stringify(record) + '\n');
+}
+
+async function readJsonl(name, limit = 1000) {
+  try {
+    const text = await readFile(join(dataDir, name), 'utf8');
+    return text.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line)).slice(-limit);
+  } catch {
+    return [];
+  }
+}
+
+async function usageSummary(hours = 24) {
+  const since = Date.now() - hours * 60 * 60_000;
+  const conversations = (await readJsonl('conversations.jsonl')).filter((row) => Date.parse(row.ts || '') >= since);
+  const throttled = (await readJsonl('bridge-throttled.jsonl')).filter((row) => Date.parse(row.ts || '') >= since);
+  const errors = (await readJsonl('soren-bridge-errors.jsonl')).filter((row) => Date.parse(row.ts || '') >= since);
+  const handoffs = (await readJsonl('handoffs.jsonl')).filter((row) => Date.parse(row.ts || '') >= since);
+  const bySource = {};
+  let noteIntent = 0;
+  let messageChars = 0;
+  let replyChars = 0;
+  for (const row of conversations) {
+    bySource[row.source || 'unknown'] = (bySource[row.source || 'unknown'] || 0) + 1;
+    if (row.noteIntent) noteIntent += 1;
+    messageChars += String(row.message || '').length;
+    replyChars += String(row.reply || '').length;
+  }
+  const throttleReasons = {};
+  for (const row of throttled) throttleReasons[row.reason || 'unknown'] = (throttleReasons[row.reason || 'unknown'] || 0) + 1;
+  return {
+    windowHours: hours,
+    conversations: conversations.length,
+    liveBridgeCalls: bySource['soren-bridge'] || 0,
+    fallbackCalls: bySource.fallback || 0,
+    filteredCalls: (bySource['safety-filter'] || 0) + (bySource['operator-identity-filter'] || 0) + (bySource['internal-info-filter'] || 0),
+    throttledCalls: throttled.length,
+    bridgeErrors: errors.length,
+    handoffs: handoffs.length,
+    noteIntent,
+    approxChars: messageChars + replyChars,
+    bySource,
+    throttleReasons,
+    recent: conversations.slice(-25).map((row) => ({ ts: row.ts, visitorId: row.visitorId, source: row.source, noteIntent: row.noteIntent, summary: row.summary }))
+  };
 }
 
 function summarizeForOwner(messages, latest, reply, noteIntent) {
@@ -142,13 +196,13 @@ function checkBridgeBudget(req, visitorId) {
   if (now - bridgeGlobalBucket.start > sorenBridgeRateLimitWindowMs) {
     bridgeGlobalBucket = { start: now, count: 0 };
   }
+  const key = `${clientIp(req)}:${visitorId || 'anonymous'}`;
+  const perVisitor = checkBucket(bridgeBuckets, key, sorenBridgeRateLimitWindowMs, sorenBridgeRateLimitMax);
+  if (!perVisitor.ok) return { ok: false, reason: 'bridge_rate_limited', retryAfter: perVisitor.retryAfter };
   bridgeGlobalBucket.count += 1;
   if (sorenBridgeGlobalRateLimitMax > 0 && bridgeGlobalBucket.count > sorenBridgeGlobalRateLimitMax) {
     return { ok: false, reason: 'bridge_global_limited', retryAfter: Math.ceil((sorenBridgeRateLimitWindowMs - (now - bridgeGlobalBucket.start)) / 1000) };
   }
-  const key = `${clientIp(req)}:${visitorId || 'anonymous'}`;
-  const perVisitor = checkBucket(bridgeBuckets, key, sorenBridgeRateLimitWindowMs, sorenBridgeRateLimitMax);
-  if (!perVisitor.ok) return { ok: false, reason: 'bridge_rate_limited', retryAfter: perVisitor.retryAfter };
   return { ok: true };
 }
 
@@ -189,9 +243,13 @@ function extractOpenClawReply(stdout) {
 
 function publicHistoryText(history) {
   if (!Array.isArray(history) || history.length === 0) return '';
-  return history.slice(-8).map((item) => {
+  return history.slice(-maxHistoryItems).map((item) => {
     const role = item?.role === 'assistant' ? 'Assistant' : 'Visitor';
-    return `${role}: ${String(item?.text || '').slice(0, 700)}`;
+    const text = String(item?.text || '')
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/(ignore previous|developer instruction|system prompt|operator override|admin override)/gi, '[redacted]')
+      .slice(0, maxHistoryChars);
+    return `${role}: ${text}`;
   }).join('\n');
 }
 
@@ -259,9 +317,8 @@ function fallbackReply(message, config = null) {
   const agentName = config?.owner?.agentName || 'ClawBell';
   if (isOperatorImpersonationAttempt(message, ownerName)) return operatorImpersonationReply(ownerName);
   if (isSensitivePersonalInfoRequest(message)) return sensitivePersonalInfoReply();
-  if (/(prompt|system|instruction|secret|key|token|password|credit card|address|phone|private|memory|file path|internal)/i.test(message)) {
-    return sensitivePersonalInfoReply();
-  }
+  if (isInternalInfoRequest(message)) return internalInfoReply();
+  if (/(credit card|address|phone|private)/i.test(message)) return sensitivePersonalInfoReply();
   if (lower.includes('clawbell') || lower.includes('this chat') || lower.includes('claw chat')) return 'ClawBell is a public-safe website chat: a way to publish a narrow, purpose-specific version of an agent on a website so visitors can ask useful questions or leave context without exposing private memory, tools, or credentials.';
   if (lower.includes('openclaw') || lower.includes('agent') || lower.includes('bridge')) return 'This public chat is intentionally narrow: public questions, useful context, and handoffs only. No private memory, tools, credentials, or actions are exposed.';
   if (lower.includes('time') || lower.includes('call') || lower.includes('book') || lower.includes('meet')) return `If you want to connect with ${ownerName}, write the context here in chat. Include who you are, the best way to reach you, and what you want to discuss. ${agentName} can keep the conversation packaged for review.`;
@@ -335,6 +392,11 @@ async function handleChat(req, res) {
     await writeJsonl('conversations.jsonl', { ts: new Date().toISOString(), visitorId, message, reply, noteIntent, source: 'safety-filter', summary: summarizeForOwner(history, message, reply, noteIntent) });
     return json(res, 200, { reply, noteIntent, source: 'safety-filter' });
   }
+  if (isInternalInfoRequest(message)) {
+    const reply = internalInfoReply();
+    await writeJsonl('conversations.jsonl', { ts: new Date().toISOString(), visitorId, message, reply, noteIntent, source: 'internal-info-filter', summary: summarizeForOwner(history, message, reply, noteIntent) });
+    return json(res, 200, { reply, noteIntent, source: 'internal-info-filter' });
+  }
   if (sorenBridgeEnabled) {
     const bridgeBudget = checkBridgeBudget(req, visitorId);
     if (!bridgeBudget.ok) {
@@ -392,12 +454,11 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.url === '/api/conversations' && req.method === 'GET') {
     if (!requireAdminRequest(req, res)) return;
-    try {
-      const text = await readFile(join(dataDir, 'conversations.jsonl'), 'utf8');
-      return json(res, 200, { conversations: text.trim().split('\n').filter(Boolean).slice(-50).map((line) => JSON.parse(line)) });
-    } catch {
-      return json(res, 200, { conversations: [] });
-    }
+    return json(res, 200, { conversations: (await readJsonl('conversations.jsonl')).slice(-50) });
+  }
+  if (req.url === '/api/usage' && req.method === 'GET') {
+    if (!requireAdminRequest(req, res)) return;
+    return json(res, 200, await usageSummary());
   }
   if (req.url === '/api/bridge-status' && req.method === 'GET') {
     if (!requireAdminRequest(req, res)) return;
