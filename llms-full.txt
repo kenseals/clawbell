@@ -1,0 +1,61 @@
+Project: ClawBell
+
+Summary:
+ClawBell is a reusable v0 product repo for a public-safe website chat. It lets an operator publish a narrow conversational surface for visitors while preserving a hard boundary around the operator's private agent, tools, memory, prompts, and admin controls.
+
+Product posture:
+- reusable product repo, not a personal-site repo
+- This repo is the generic reusable product package
+- current status is v0 and self-host oriented
+- docs should stay honest about limits and avoid promising hosted-product capabilities that do not exist yet
+
+Canonical repo:
+- https://github.com/kenseals/clawbell
+
+Core trust boundary:
+- visitors are never trusted as owner/operator/admin
+- public ClawBell should talk only to a narrow authenticated bridge adapter
+- never expose a full OpenClaw gateway or private workspace to the public internet
+- sensitive/private requests should be refused before bridge calls
+- bridge responses should return text only
+- fallback mode should be honest when the bridge is down
+
+Primary files to read:
+1. README.md
+2. AGENTS.md
+3. INSTALL_FOR_AGENTS.md
+4. CLAWBELL_VERIFY.md
+5. bridge-recipes/cloudflare-tunnel.md
+6. bridge-recipes/tailscale-funnel.md
+7. bridge-recipes/custom-https-bridge.md
+
+Code/runtime files:
+- server.mjs: Node server that serves UI and API
+- scripts/local-openclaw-bridge.mjs: narrow local bridge helper for a public-safe OpenClaw session
+- scripts/operator-digest.mjs: JSONL log digest helper
+- package.json: npm scripts including syntax verification
+
+Deploy guidance:
+- simplest current deployment is a single Node host such as Render, Fly, or Railway
+- a launch architecture may split the public domain/static surface and the Node/API service:
+  - an edge/static host can serve the public site
+  - Render can continue hosting the ClawBell v0 Node/API service
+- that split is operational guidance, not a claim that this repo is already packaged as a Pages-native app
+
+Bridge guidance:
+- fallback-only mode is valid when no live bridge is ready
+- Cloudflare Tunnel is the recommended reusable public-production bridge
+- Tailscale Funnel is a fast dogfood/personal-operator bridge
+- custom HTTPS is supported if it preserves the same narrow contract
+
+Verification:
+- run `npm run check:syntax`
+- use `CLAWBELL_VERIFY.md`
+- grep for stale repo/canonical references like `k2claw`
+- confirm no secrets/tokens were added
+
+Editing rules for coding agents:
+- stay within this repo/worktree
+- do not touch or commit secrets, local config, or runtime data
+- keep docs generic to ClawBell unless an example is clearly labeled
+- do not merge, push, or deploy unless explicitly instructed

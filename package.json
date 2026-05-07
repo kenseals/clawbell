@@ -1,0 +1,13 @@
+{
+  "name": "clawbell-v0",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "digest": "node scripts/operator-digest.mjs",
+    "check:syntax": "node --check server.mjs && node --check scripts/operator-digest.mjs && node --check scripts/local-openclaw-bridge.mjs",
+    "security:smoke": "node scripts/security-smoke.mjs",
+    "security:smoke:live": "node scripts/security-smoke.mjs --live-bridge"
+  }
+}

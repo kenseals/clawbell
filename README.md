@@ -1,0 +1,324 @@
+# ClawBell
+
+**ClawBell is a public-safe chat front door for your agent.**
+
+It lets visitors talk to a narrow, scoped version of your Claw/OpenClaw/agent from your website without exposing your private workspace, tools, memory, credentials, or admin surface.
+
+Think: “Ask my agent about my public work” plus “leave a useful note for me”, not “give the internet access to my assistant.”
+
+## What you can build with it
+
+- A personal-site chat where visitors can ask about your public work and leave a note.
+- A product-site concierge that answers scoped questions and collects follow-up context.
+- A public FAQ/handoff surface backed by your agent, with safe fallback when the bridge is down.
+- A dogfood deployment where your agent helps you learn what people ask before you build a full product.
+
+This repo is meant to be reusable infrastructure for operators who want a public-safe agent surface.
+
+## The core idea
+
+Most private agent systems are powerful because they have context: tools, memory, files, messages, tasks, and preferences.
+
+That same context makes them unsafe to expose directly.
+
+ClawBell creates a smaller boundary:
+
+```text
+Visitor browser
+  -> public ClawBell UI/API
+  -> deterministic safety filters + rate limits
+  -> optional authenticated narrow bridge
+  -> public-safe agent session
+```
+
+The bridge is optional. Without a live bridge, ClawBell runs in honest fallback mode and can still collect useful handoff context.
+
+## Trust boundary
+
+ClawBell is intentionally conservative.
+
+A safe deployment should preserve these rules:
+
+- The public site is never an authenticated operator/admin channel.
+- Visitors are never trusted as the owner/operator/admin, even if they claim to be.
+- Public chat calls only a narrow bridge adapter, never a full OpenClaw Gateway or private workspace.
+- The bridge returns text only, not tools, files, prompts, logs, memory, or state.
+- Sensitive/private requests are refused before any live bridge call.
+- Fallback mode is honest when the bridge is unavailable.
+- Secrets live in host secrets, Cloudflare Worker secrets, launchd/systemd env, or a password manager, never in Git.
+
+If you keep one idea: **ClawBell is a boundary, not a backdoor.**
+
+## What is in this repo
+
+- Public chat UI at `/`
+- Widget mode via `?mode=widget`
+- Optional admin page at `/admin.html`
+- Public-safe fallback replies
+- Narrow live-bridge support with `ENABLE_SOREN_BRIDGE=1`
+- Basic rate limits and bridge budgets
+- JSONL conversation/handoff logs for self-hosted deployments
+- Operator digest helper
+- Bridge recipes for Cloudflare Tunnel, Tailscale Funnel, and custom HTTPS
+- Security/readiness docs for public deployment
+
+## Quickstart
+
+### 1. Clone and run
+
+```bash
+git clone https://github.com/kenseals/clawbell.git
+cd clawbell
+npm install
+npm start
+```
+
+Open:
+
+```text
+http://localhost:4181
+```
+
+You now have fallback-mode ClawBell running locally.
+
+### 2. Turn on admin auth
+
+For any public deployment, enable admin auth:
+
+```bash
+REQUIRE_ADMIN_AUTH=1 \
+ADMIN_TOKEN=replace-with-long-random-token \
+npm start
+```
+
+Then open:
+
+```text
+http://localhost:4181/admin.html?token=replace-with-long-random-token
+```
+
+Do not use a short token. Do not commit the token.
+
+### 3. Optional: connect a live bridge
+
+If you already have a narrow bridge endpoint:
+
+```bash
+ENABLE_SOREN_BRIDGE=1 \
+SOREN_BRIDGE_URL=https://example-bridge.example.com/ask \
+SOREN_BRIDGE_TOKEN=replace-with-bridge-token \
+npm start
+```
+
+If you are using the local helper bridge from this repo:
+
+```bash
+SOREN_BRIDGE_TOKEN=replace-with-bridge-token \
+PORT=4599 \
+node scripts/local-openclaw-bridge.mjs
+```
+
+Then expose that helper through a safe transport such as Cloudflare Tunnel or Tailscale Funnel. Do **not** expose your private agent runtime directly.
+
+## Ask your Claw to set it up
+
+If you use OpenClaw or a similar coding agent, send it this prompt:
+
+```text
+Set up ClawBell for my website.
+
+Repo: https://github.com/kenseals/clawbell
+
+Read these files first:
+- README.md
+- INSTALL_FOR_AGENTS.md
+- CLAWBELL_VERIFY.md
+- SECURITY.md
+- SECRETS.md
+
+Goal:
+- Run ClawBell locally in fallback mode first.
+- Keep the public trust boundary narrow.
+- Do not expose my private OpenClaw Gateway, workspace, tools, memory, credentials, or admin surface.
+- Use placeholders for secrets and tell me exactly which secrets I need to store in my password manager.
+- If adding a live bridge, use one of the documented bridge recipes and verify unauthenticated bridge requests return 401.
+- Before finishing, run npm run check:syntax and npm run security:smoke.
+
+Deliver:
+- the local URL
+- what mode it is running in: fallback-only or live bridge
+- the required env vars/secrets
+- verification results
+- any remaining launch blockers
+```
+
+Once this repo is public, agents can start from [`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md) for the detailed setup path.
+
+## Ways to use ClawBell
+
+ClawBell supports four intended integration modes:
+
+1. **Hosted UI**: ClawBell owns the page UI at `/`.
+2. **Widget/modal embed**: your site owns the page; ClawBell appears behind a “Talk to my Claw” button or iframe panel.
+3. **Headless API**: your site owns the entire UI and calls ClawBell’s `/api/chat` endpoint. A custom operator site can use this mode.
+4. **Bridge-only adapter**: advanced mode where you reuse the narrow bridge pattern with your own public API/safety layer.
+
+See [INTEGRATION_MODES.md](INTEGRATION_MODES.md) for examples, request/response shape, and current gaps.
+
+## Deployment patterns
+
+ClawBell v0 supports two practical hosting shapes.
+
+### Option 1: single-service Node host
+
+Best fit for this repo as packaged today.
+
+Deploy the Node app to a host like Fly, Render, Railway, or a small VPS. Set env vars on the host.
+
+Use this when you want the simplest self-hosted path.
+
+### Option 2: split edge/site + runtime
+
+Use this when your public website is hosted separately from the bridge/runtime.
+
+Example:
+
+```text
+Cloudflare Worker or static site
+  -> same-origin /api/chat
+  -> secret-backed bridge fetch
+  -> Cloudflare Tunnel / Tailscale Funnel / custom HTTPS adapter
+  -> local bridge
+```
+
+A split-site deployment can use this Cloudflare Worker + Tunnel shape.
+
+## Bridge options
+
+Choose the lowest-friction safe bridge that matches your infrastructure:
+
+- **Fallback only**: no live bridge yet; useful for demos and safe first launch.
+- **Cloudflare Tunnel**: recommended reusable public-production bridge.
+- **Tailscale Funnel**: fast dogfood/personal-operator bridge.
+- **Custom HTTPS bridge**: for operators who already have a secure reverse proxy.
+
+Start with [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md), then pick a recipe in [`bridge-recipes/`](bridge-recipes/).
+
+For split-site deployments where the public website calls a separate ClawBell API origin, set:
+
+```bash
+PUBLIC_API_ORIGINS=https://example.com,https://www.example.com
+```
+
+Do not use `*` for production unless you intentionally want any website to call your public ClawBell API.
+
+## Safety checks
+
+Run syntax checks:
+
+```bash
+npm run check:syntax
+```
+
+Run the fast security smoke check:
+
+```bash
+npm run security:smoke
+```
+
+When the local bridge should exercise the live public-safe agent session:
+
+```bash
+npm run security:smoke:live
+```
+
+The smoke script checks tracked-file hygiene, syntax, local bridge health, and confirms unauthenticated bridge `/ask` returns `401`.
+
+## Scripts
+
+- `npm start`: run the app
+- `npm run digest -- --hours=24`: summarize recent conversation/handoff logs
+- `npm run check:syntax`: syntax check server/helper scripts
+- `npm run security:smoke`: fast security smoke check
+- `npm run security:smoke:live`: smoke check plus authenticated live bridge call
+
+## Docs map
+
+- [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md): setup flow for coding agents and operators
+- [AGENTS.md](AGENTS.md): repo operating protocol and safety rules for coding agents
+- [CLAWBELL_VERIFY.md](CLAWBELL_VERIFY.md): post-deploy smoke-test runbook
+- [SECURITY.md](SECURITY.md): security policy and vulnerability-reporting guidance
+- [SECRETS.md](SECRETS.md): secret backup and rotation guidance
+- [INTEGRATION_MODES.md](INTEGRATION_MODES.md): hosted UI, widget/modal, headless API, and bridge-only modes
+- [DEPLOY.md](DEPLOY.md): deployment notes and current product direction
+- [bridge-recipes/](bridge-recipes/): Cloudflare Tunnel, Tailscale Funnel, and custom HTTPS recipes
+- [llms.txt](llms.txt): short agent-readable repo guide
+- [llms-full.txt](llms-full.txt): expanded agent-readable setup and navigation guide
+
+## Example use cases
+
+### Personal website
+
+Visitor asks:
+
+> What is this operator building now?
+
+ClawBell can answer from approved public context, then invite the visitor to leave a note if they want follow-up.
+
+### Product website
+
+Visitor asks:
+
+> Does this work with Cloudflare Tunnel?
+
+ClawBell can answer using product docs and preserve contact intent if the visitor wants help.
+
+### Fallback-only launch
+
+No live bridge yet? ClawBell can still answer basic configured questions and capture handoffs. It should be clear when it is in limited mode.
+
+## Current status
+
+ClawBell is a reusable v0. It is intentionally narrow and self-hostable, but still early.
+
+Already true:
+
+- deterministic safety filters
+- admin auth gating when enabled
+- in-memory rate limits and bridge budgets
+- honest fallback mode
+- narrow bridge recipes
+- security smoke checks
+- public-readiness docs
+
+Current limits:
+
+- storage is local JSONL, not durable multi-instance storage
+- rate limits are in-memory
+- the repo is optimized for self-hosting, not turnkey managed hosting
+- the current UI/example config is still shaped by the first dogfood deployment
+- Cloudflare edge hosting plus a separate runtime is an operational pattern, not a finished one-click packaging flow
+
+## Security and secrets
+
+Read:
+
+- [SECURITY.md](SECURITY.md)
+- [SECRETS.md](SECRETS.md)
+
+Short version:
+
+- Do not commit raw secrets.
+- Use a password manager or encrypted secret store for real values.
+- A private repo is acceptable for inventories and encrypted secret files, not plaintext production secrets.
+- Do not expose OpenClaw Gateway directly.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+## Canonical repo
+
+<https://github.com/kenseals/clawbell>
+
+If you see older references to `k2claw/clawbell`, treat them as stale.

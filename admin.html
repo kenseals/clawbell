@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ClawBell Owner Dashboard</title>
+  <link rel="stylesheet" href="./admin.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Owner dashboard</p>
+        <h1>Manage what the public agent can say.</h1>
+        <p>Configure the public-safe chat surface and review what visitors are asking without reading every transcript.</p>
+      </div>
+      <a class="preview" href="./" target="_blank" rel="noreferrer">Open chat ↗</a>
+    </header>
+
+    <section class="grid">
+      <form id="configForm" class="card config-card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Public config</p>
+            <h2>Chat policy</h2>
+          </div>
+          <button type="submit">Save config</button>
+        </div>
+
+        <label>Owner name<input id="ownerName" /></label>
+        <label>Site purpose<input id="sitePurpose" /></label>
+        <label>Agent name<input id="agentName" /></label>
+        <label>Agent subtitle<input id="agentSubtitle" /></label>
+        <label>Welcome message<textarea id="welcomeMessage" rows="3"></textarea></label>
+        <label>Starter prompts <span>one per line</span><textarea id="starterPrompts" rows="4"></textarea></label>
+        <label>Allowed topics <span>one per line</span><textarea id="allowedTopics" rows="5"></textarea></label>
+        <label>Approved public facts <span>one per line</span><textarea id="shareFacts" rows="5"></textarea></label>
+        <label>Do not share <span>one per line</span><textarea id="doNotShare" rows="5"></textarea></label>
+        <p id="saveStatus" class="status" role="status"></p>
+      </form>
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Visitor intelligence</p>
+            <h2>Recent conversations</h2>
+          </div>
+          <button id="refresh" type="button">Refresh</button>
+        </div>
+        <div id="conversationList" class="conversation-list"></div>
+      </section>
+    </section>
+  </main>
+  <script src="./admin.js"></script>
+</body>
+</html>

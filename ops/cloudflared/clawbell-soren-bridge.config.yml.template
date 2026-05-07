@@ -1,0 +1,7 @@
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: /path/to/REPLACE_WITH_TUNNEL_ID.json
+
+ingress:
+  - hostname: REPLACE_WITH_BRIDGE_HOSTNAME
+    service: http://127.0.0.1:4599
+  - service: http_status:404

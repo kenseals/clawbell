@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: clawbell-v0
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node server.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REQUIRE_ADMIN_AUTH
+        value: "1"
+      - key: ENABLE_SOREN_BRIDGE
+        value: "1"
+      - key: SOREN_BRIDGE_URL
+        sync: false
+      - key: SOREN_BRIDGE_TOKEN
+        sync: false
+      - key: SOREN_BRIDGE_ACCESS_CLIENT_ID
+        sync: false
+      - key: SOREN_BRIDGE_ACCESS_CLIENT_SECRET
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: PUBLIC_API_ORIGINS
+        sync: false
+      - key: MAX_MESSAGE_CHARS
+        value: "1200"
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "60000"
+      - key: RATE_LIMIT_MAX
+        value: "12"
+      - key: SOREN_BRIDGE_MAX_CONCURRENT
+        value: "3"
+      - key: SOREN_BRIDGE_RATE_LIMIT_WINDOW_MS
+        value: "3600000"
+      - key: SOREN_BRIDGE_RATE_LIMIT_MAX
+        value: "4"
+      - key: SOREN_BRIDGE_GLOBAL_RATE_LIMIT_MAX
+        value: "30"

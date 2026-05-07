@@ -1,0 +1,9 @@
+data/
+config.local.json
+.env
+.DS_Store
+node_modules/
+
+.wrangler/
+.dev.vars*
+!.dev.vars.example

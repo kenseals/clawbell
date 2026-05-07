@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.clawbell.soren-bridge</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/path/to/node</string>
+    <string>/path/to/clawbell/scripts/local-openclaw-bridge.mjs</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/path/to/clawbell</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PORT</key>
+    <string>4599</string>
+    <key>OPENCLAW_BIN</key>
+    <string>/path/to/openclaw</string>
+    <key>SOREN_SESSION_ID</key>
+    <string>public-clawbell-session</string>
+    <key>SOREN_BRIDGE_TOKEN</key>
+    <string>REPLACE_WITH_LONG_RANDOM_TOKEN</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/path/to/clawbell/data/local-openclaw-bridge.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/path/to/clawbell/data/local-openclaw-bridge.err.log</string>
+</dict>
+</plist>
