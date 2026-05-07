@@ -41,6 +41,7 @@ const conversations = (await readJsonl('conversations.jsonl')).filter(withinWind
 const handoffs = (await readJsonl('handoffs.jsonl')).filter(withinWindow);
 const bridgeErrors = (await readJsonl('soren-bridge-errors.jsonl')).filter(withinWindow);
 const throttled = (await readJsonl('bridge-throttled.jsonl')).filter(withinWindow);
+const bridgeUsage = (await readJsonl('soren-bridge-usage.jsonl')).filter(withinWindow);
 
 const bySource = conversations.reduce((acc, item) => {
   const key = item.source || 'unknown';
@@ -49,8 +50,16 @@ const bySource = conversations.reduce((acc, item) => {
 }, {});
 
 const uniqueVisitors = new Set(conversations.map((item) => item.visitorId || 'anonymous'));
+const bridgeVisitors = new Set(bridgeUsage.map((item) => item.visitorId || 'anonymous'));
+const usageByOutcome = bridgeUsage.reduce((acc, item) => {
+  const key = item.outcome || item.event || 'unknown';
+  acc[key] = (acc[key] || 0) + 1;
+  return acc;
+}, {});
+const approxChars = bridgeUsage.reduce((sum, item) => sum + Number(item.promptChars || 0) + Number(item.replyChars || 0), 0);
 const important = conversations.filter(isLikelyImportant).slice(-8);
-const degraded = conversations.filter((item) => item.degraded || item.source === 'fallback' || item.source === 'safety-filter').slice(-8);
+const degraded = conversations.filter((item) => item.degraded || item.source === 'fallback' || item.source === 'safety-filter' || item.source === 'internal-info-filter' || item.source === 'operator-identity-filter').slice(-8);
+const usageNotable = bridgeUsage.filter((item) => item.outcome && item.outcome !== 'ok').slice(-8);
 
 const lines = [];
 lines.push(`# ClawBell operator digest`);
@@ -64,6 +73,12 @@ lines.push(`- Handoffs: ${handoffs.length}`);
 lines.push(`- Bridge errors: ${bridgeErrors.length}`);
 lines.push(`- Bridge throttles: ${throttled.length}`);
 lines.push(`- Sources: ${Object.entries(bySource).map(([key, value]) => `${key}=${value}`).join(', ') || 'none'}`);
+if (bridgeUsage.length) {
+  lines.push(`- Bridge usage events: ${bridgeUsage.length}`);
+  lines.push(`- Bridge unique visitors: ${bridgeVisitors.size}`);
+  lines.push(`- Approx bridge chars: ${approxChars}`);
+  lines.push(`- Bridge outcomes: ${Object.entries(usageByOutcome).map(([key, value]) => `${key}=${value}`).join(', ') || 'none'}`);
+}
 lines.push('');
 
 if (important.length) {
@@ -78,6 +93,14 @@ if (degraded.length) {
   lines.push(`## Degraded, fallback, or safety-filtered chats`);
   for (const item of degraded) {
     lines.push(`- ${item.ts || 'unknown time'} · ${item.source || 'unknown'}${item.degraded ? ' · degraded' : ''} · ${clean(item.message)}`);
+  }
+  lines.push('');
+}
+
+if (usageNotable.length) {
+  lines.push(`## Bridge usage warnings`);
+  for (const item of usageNotable) {
+    lines.push(`- ${item.ts || 'unknown time'} · ${item.outcome || item.event || 'unknown'} · visitor=${clean(item.visitorId, 80)} · ${clean(item.messagePreview || item.error)}`);
   }
   lines.push('');
 }

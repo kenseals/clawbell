@@ -236,12 +236,46 @@ npm run security:smoke:live
 
 The smoke script checks tracked-file hygiene, syntax, local bridge health, and confirms unauthenticated bridge `/ask` returns `401`.
 
+## Usage visibility
+
+ClawBell has two usage paths because operators can deploy it in more than one shape:
+
+1. **Reusable Node app**: the hosted ClawBell app writes `data/conversations.jsonl`, `data/handoffs.jsonl`, and related bridge event files. The admin dashboard shows a last-24-hour usage panel, and `GET /api/usage` returns the same summary with admin auth.
+2. **Bridge-only / headless implementation**: a custom site can keep its own UI/API and use only `scripts/local-openclaw-bridge.mjs`. The local bridge writes `data/soren-bridge-usage.jsonl`, enforces its own visitor throttle, and exposes bearer-protected `GET /usage`.
+
+The usage summary includes:
+
+- live bridge calls
+- fallback calls
+- filtered/refused prompts
+- throttled calls and reasons
+- bridge errors
+- handoffs / note intent
+- approximate character usage as a token-burn proxy
+- recent event summaries
+
+Approximate character usage is not provider billing data. It is an operational warning signal for abuse or unexpectedly expensive public traffic.
+
+## Operator digest / cron
+
+`npm run digest -- --hours=24` prints a compact operator digest from recent conversation, handoff, error, throttle, and bridge usage logs.
+
+ClawBell does not currently install a cron job automatically. The intended product behavior is: after setup, the operator or their agent can schedule this digest with their preferred scheduler and send the output wherever they want.
+
+Example cron shape:
+
+```cron
+0 9 * * * cd /path/to/clawbell && npm run digest -- --hours=24
+```
+
+For OpenClaw operators, the better pattern is usually an OpenClaw cron/reminder that runs the digest, reviews the output, and sends a concise update only when there is useful signal, abuse, throttling, bridge degradation, or a promising lead.
+
 ## Scripts
 
 - `npm start`: run the app
 - `GET /api/usage` with admin auth: summarize the last 24 hours of conversations, live bridge calls, fallbacks, filters, throttles, handoffs, errors, and approximate character usage
 - `GET /usage` on the local bridge with bearer auth: summarize bridge-only usage from `data/soren-bridge-usage.jsonl`
-- `npm run digest -- --hours=24`: summarize recent conversation/handoff logs
+- `npm run digest -- --hours=24`: summarize recent conversation, handoff, error, throttle, and bridge usage logs
 - `npm run check:syntax`: syntax check server/helper scripts
 - `npm run security:smoke`: fast security smoke check
 - `npm run security:smoke:live`: smoke check plus authenticated live bridge call
