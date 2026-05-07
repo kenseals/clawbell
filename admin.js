@@ -57,14 +57,18 @@ function readConfig() {
 }
 
 async function loadConfig() {
-  const res = await fetch('/api/config', { headers: adminHeaders() });
+  const res = await fetch('/api/admin/config', { headers: adminHeaders() });
+  if (!res.ok) {
+    statusEl.textContent = 'Admin auth required.';
+    return;
+  }
   fill(await res.json());
 }
 
 async function saveConfig(event) {
   event.preventDefault();
   statusEl.textContent = 'Saving…';
-  const res = await fetch('/api/config', {
+  const res = await fetch('/api/admin/config', {
     method: 'POST',
     headers: adminHeaders({ 'content-type': 'application/json' }),
     body: JSON.stringify(readConfig())

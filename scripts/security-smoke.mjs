@@ -96,8 +96,31 @@ if (liveBridge) {
 }
 
 if (appUrl) {
+  const normalizedAppUrl = appUrl.replace(/\/$/, '');
+  run('app public config is display-only', () => {
+    const output = curlJson(`${normalizedAppUrl}/api/config`, { timeout: 10 });
+    const status = statusFromCurlOutput(output);
+    if (status !== 200) throw new Error(`expected 200, got ${status || 'unknown'}`);
+    if (/doNotShare|allowedTopics|conversation|guidance|leadWhen/i.test(output)) {
+      throw new Error('public /api/config appears to expose policy/admin fields');
+    }
+    pass('app public config is display-only', '/api/config excludes policy/admin fields');
+  });
+
+  run('app unauthenticated admin routes are rejected', () => {
+    const routes = ['/admin.html', '/api/admin/config', '/api/conversations', '/api/usage', '/api/bridge-status'];
+    const bad = [];
+    for (const route of routes) {
+      const output = curlJson(`${normalizedAppUrl}${route}`, { timeout: 10 });
+      const status = statusFromCurlOutput(output);
+      if (status !== 401) bad.push(`${route}=${status || 'unknown'}`);
+    }
+    if (bad.length) throw new Error(`expected 401 for admin routes: ${bad.join(', ')}`);
+    pass('app unauthenticated admin routes are rejected', 'admin/config/conversation/usage/status routes returned 401');
+  });
+
   run('app bridge-status hides secrets', () => {
-    const output = curlJson(`${appUrl.replace(/\/$/, '')}/api/bridge-status`, { timeout: 10 });
+    const output = curlJson(`${normalizedAppUrl}/api/bridge-status`, { timeout: 10 });
     const status = statusFromCurlOutput(output);
     if (status !== 200 && status !== 401) throw new Error(`expected 200 or auth-gated 401, got ${status || 'unknown'}`);
     if (/Bearer\s+[A-Za-z0-9_+/-]{16,}|SOREN_BRIDGE_TOKEN\s*[:=]\s*[A-Za-z0-9_+/-]{16,}/.test(output)) {

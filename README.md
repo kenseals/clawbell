@@ -83,9 +83,16 @@ http://localhost:4181
 
 You now have fallback-mode ClawBell running locally.
 
-### 2. Turn on admin auth
+### 2. Admin auth
 
-For any public deployment, enable admin auth:
+For production-like environments, ClawBell requires admin auth by default. Set a long random `ADMIN_TOKEN` before deploying:
+
+```bash
+ADMIN_TOKEN=replace-with-long-random-token \
+npm start
+```
+
+You can also force admin auth locally:
 
 ```bash
 REQUIRE_ADMIN_AUTH=1 \
@@ -98,6 +105,8 @@ Then open:
 ```text
 http://localhost:4181/admin.html?token=replace-with-long-random-token
 ```
+
+Local development without admin auth is still allowed by default. If you intentionally need unauthenticated admin access in a production-like environment, set `ALLOW_UNAUTHENTICATED_ADMIN=1`, but do not use that for a public deployment.
 
 Do not use a short token. Do not commit the token.
 
@@ -322,12 +331,13 @@ ClawBell is a reusable v0. It is intentionally narrow and self-hostable, but sti
 Already true:
 
 - deterministic safety filters
-- admin auth gating when enabled
+- admin auth required by default in production-like environments
 - in-memory rate limits and bridge budgets
 - honest fallback mode
 - narrow bridge recipes
 - security smoke checks
 - public-readiness docs
+- display-only public config, with full policy config behind admin auth
 
 Current limits:
 

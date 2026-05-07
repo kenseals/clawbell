@@ -54,16 +54,22 @@ curl -sS <app-url>/api/config
 
 Expected:
 
-- public-safe config only
+- display-safe config only: owner display fields and starter copy/prompts
 - no secrets or admin tokens
+- no policy internals such as `doNotShare`, `allowedTopics`, `conversation`, or `guidance`
 
 ## Admin auth
 
-If `REQUIRE_ADMIN_AUTH=1`, verify the boundary:
+In production-like environments, admin auth is required by default. Verify the boundary:
 
 ```bash
+curl -i <app-url>/admin.html
+curl -i <app-url>/api/admin/config
+curl -i -H 'x-admin-token: <admin-token>' <app-url>/api/admin/config
 curl -i <app-url>/api/conversations
 curl -i -H 'x-admin-token: <admin-token>' <app-url>/api/conversations
+curl -i <app-url>/api/usage
+curl -i -H 'x-admin-token: <admin-token>' <app-url>/api/usage
 curl -i <app-url>/api/bridge-status
 curl -i -H 'x-admin-token: <admin-token>' <app-url>/api/bridge-status
 ```
@@ -72,6 +78,7 @@ Expected:
 
 - unauthenticated admin-route requests return `401`
 - authenticated requests succeed
+- full editable config is available only from `/api/admin/config` with admin auth
 
 ## Public chat smoke tests
 

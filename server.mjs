@@ -17,7 +17,9 @@ const sorenBridgeToken = process.env.SOREN_BRIDGE_TOKEN_OVERRIDE || process.env.
 const sorenBridgeAccessClientId = process.env.SOREN_BRIDGE_ACCESS_CLIENT_ID || '';
 const sorenBridgeAccessClientSecret = process.env.SOREN_BRIDGE_ACCESS_CLIENT_SECRET || '';
 const adminToken = process.env.ADMIN_TOKEN || '';
-const requireAdmin = process.env.REQUIRE_ADMIN_AUTH === '1';
+const allowUnauthenticatedAdmin = process.env.ALLOW_UNAUTHENTICATED_ADMIN === '1';
+const productionLike = process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.FLY_APP_NAME || process.env.RAILWAY_ENVIRONMENT || process.env.CF_PAGES;
+const requireAdmin = process.env.REQUIRE_ADMIN_AUTH === '1' || (productionLike && !allowUnauthenticatedAdmin);
 const rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
 const rateLimitMax = Number(process.env.RATE_LIMIT_MAX || 12);
 const sorenBridgeMaxConcurrent = Number(process.env.SOREN_BRIDGE_MAX_CONCURRENT || 1);
@@ -55,6 +57,22 @@ async function loadConfig() {
   } catch {
     return JSON.parse(await readFile(join(root, 'config.example.json'), 'utf8'));
   }
+}
+
+function publicConfig(config) {
+  return {
+    owner: {
+      name: config.owner?.name || '',
+      sitePurpose: config.owner?.sitePurpose || '',
+      agentName: config.owner?.agentName || 'ClawBell',
+      agentSubtitle: config.owner?.agentSubtitle || ''
+    },
+    starter: {
+      title: config.starter?.title || '',
+      message: config.starter?.message || '',
+      prompts: Array.isArray(config.starter?.prompts) ? config.starter.prompts : []
+    }
+  };
 }
 
 function publicPolicyText(config) {
@@ -212,6 +230,10 @@ function isAdminRequest(req) {
   const url = new URL(req.url || '/', `http://${req.headers.host}`);
   const queryToken = url.searchParams.get('token');
   return Boolean(adminToken) && (header === adminToken || queryToken === adminToken);
+}
+
+function isLocalDevAdminOpen() {
+  return !requireAdmin;
 }
 
 function requireAdminRequest(req, res) {
@@ -445,8 +467,12 @@ const server = http.createServer(async (req, res) => {
   applyCors(req, res);
   if (req.method === 'OPTIONS') return res.writeHead(204).end();
   if (req.url === '/health') return json(res, 200, { ok: true });
-  if (req.url === '/api/config' && req.method === 'GET') return json(res, 200, await loadConfig());
-  if (req.url === '/api/config' && req.method === 'POST') {
+  if (req.url === '/api/config' && req.method === 'GET') return json(res, 200, publicConfig(await loadConfig()));
+  if (req.url === '/api/admin/config' && req.method === 'GET') {
+    if (!requireAdminRequest(req, res)) return;
+    return json(res, 200, await loadConfig());
+  }
+  if ((req.url === '/api/admin/config' || req.url === '/api/config') && req.method === 'POST') {
     if (!requireAdminRequest(req, res)) return;
     const body = await readBody(req);
     try { await saveConfig(body); return json(res, 200, { ok: true }); }
