@@ -10,5 +10,18 @@
     "security:smoke": "node scripts/security-smoke.mjs",
     "security:smoke:bridge": "node scripts/security-smoke.mjs --bridge",
     "security:smoke:live": "node scripts/security-smoke.mjs --live-bridge"
+  },
+  "description": "Public-safe website chat front door for operator-owned agents. Early self-hosted v0.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kenseals/clawbell.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kenseals/clawbell/issues"
+  },
+  "homepage": "https://github.com/kenseals/clawbell#readme",
+  "engines": {
+    "node": ">=22"
   }
 }

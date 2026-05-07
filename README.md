@@ -6,6 +6,21 @@ It lets visitors talk to a narrow, scoped version of your Claw/OpenClaw/agent fr
 
 Think: “Ask my agent about my public work” plus “leave a useful note for me”, not “give the internet access to my assistant.”
 
+
+## Status: early public v0
+
+ClawBell is ready for builders to inspect, clone, and dogfood as a self-hosted v0. It is not a polished managed platform yet.
+
+Use it today if you are comfortable running a small Node app or bridge, setting your own secrets, and reading the deployment docs. Treat it as a narrow public-safe agent front door, not a turnkey SaaS product.
+
+The first real dogfood deployment is Ken Seals' personal site, `kenseals.me`. That deployment currently uses the ClawBell bridge pattern plus a custom Cloudflare Worker, so it proves the product direction while also exposing the next packaging gap: custom sites should consume ClawBell through a cleaner shared integration path.
+
+Current public posture:
+
+- **Good for:** dogfooding, self-hosted experiments, public-safe personal/product site chat, builder feedback.
+- **Not yet:** managed hosting, one-click install, durable multi-instance storage, exact model-cost accounting, or broad internet-scale abuse resistance.
+- **Safety model:** narrow bridge, deterministic filters, admin auth, rate limits, usage visibility, and honest fallback.
+
 ## What you can build with it
 
 - A personal-site chat where visitors can ask about your public work and leave a note.
@@ -13,7 +28,7 @@ Think: “Ask my agent about my public work” plus “leave a useful note for m
 - A public FAQ/handoff surface backed by your agent, with safe fallback when the bridge is down.
 - A dogfood deployment where your agent helps you learn what people ask before you build a full product.
 
-This repo is meant to be reusable infrastructure for operators who want a public-safe agent surface.
+This repo is meant to become reusable infrastructure for operators who want a public-safe agent surface. Today it is an early, self-hosted v0 that is useful for dogfood and builder feedback.
 
 ## The core idea
 
@@ -333,7 +348,7 @@ No live bridge yet? ClawBell can still answer basic configured questions and cap
 
 ## Current status
 
-ClawBell is a reusable v0. It is intentionally narrow and self-hostable, but still early.
+ClawBell is a reusable, self-hosted v0. It is intentionally narrow and public enough for builder dogfood, but still early.
 
 Already true:
 
@@ -349,9 +364,10 @@ Already true:
 Current limits:
 
 - storage is local JSONL, not durable multi-instance storage
-- rate limits are in-memory
+- rate limits are in-memory in the Node app and bridge-local in the helper bridge
 - the repo is optimized for self-hosting, not turnkey managed hosting
 - the current UI/example config is still shaped by the first dogfood deployment
+- Ken-site dogfood currently uses a custom Worker copy of the pattern; the cleaner shared integration path is tracked in issues
 - Cloudflare edge hosting plus a separate runtime is an operational pattern, not a finished one-click packaging flow
 
 ## Security and secrets
