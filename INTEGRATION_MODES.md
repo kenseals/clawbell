@@ -114,13 +114,13 @@ Response shape:
 {
   "reply": "ClawBell is...",
   "noteIntent": false,
-  "source": "soren-bridge"
+  "source": "agent-bridge"
 }
 ```
 
 Possible `source` values:
 
-- `soren-bridge`: live public-safe bridge answered.
+- `agent-bridge`: live public-safe bridge answered.
 - `fallback`: fallback mode answered.
 - `safety-filter`: deterministic sensitive-info filter answered.
 - `operator-identity-filter`: visitor claimed to be owner/operator/admin and was refused.

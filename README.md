@@ -55,11 +55,11 @@ If you keep one idea: **ClawBell is a boundary, not a backdoor.**
 - Widget mode via `?mode=widget`
 - Optional admin page at `/admin.html`
 - Public-safe fallback replies
-- Narrow live-bridge support with `ENABLE_SOREN_BRIDGE=1`
+- Narrow live-bridge support with `ENABLE_AGENT_BRIDGE=1`
 - Basic rate limits and bridge budgets
 - JSONL conversation/handoff logs for self-hosted deployments
 - `/api/usage` admin endpoint and dashboard stats for live calls, fallbacks, filtered/refused prompts, throttles, handoffs, errors, and approximate character usage
-- Local bridge `/usage` endpoint for bridge-only deployments, backed by `data/soren-bridge-usage.jsonl`
+- Local bridge `/usage` endpoint for bridge-only deployments, backed by `data/agent-bridge-usage.jsonl`
 - Operator digest helper
 - Bridge recipes for Cloudflare Tunnel, Tailscale Funnel, and custom HTTPS
 - Security/readiness docs for public deployment
@@ -115,16 +115,16 @@ Do not use a short token. Do not commit the token.
 If you already have a narrow bridge endpoint:
 
 ```bash
-ENABLE_SOREN_BRIDGE=1 \
-SOREN_BRIDGE_URL=https://example-bridge.example.com/ask \
-SOREN_BRIDGE_TOKEN=replace-with-bridge-token \
+ENABLE_AGENT_BRIDGE=1 \
+AGENT_BRIDGE_URL=https://example-bridge.example.com/ask \
+AGENT_BRIDGE_TOKEN=replace-with-bridge-token \
 npm start
 ```
 
 If you are using the local helper bridge from this repo:
 
 ```bash
-SOREN_BRIDGE_TOKEN=replace-with-bridge-token \
+AGENT_BRIDGE_TOKEN=replace-with-bridge-token \
 PORT=4599 \
 node scripts/local-openclaw-bridge.mjs
 ```
@@ -152,7 +152,7 @@ Goal:
 - Keep the public trust boundary narrow.
 - Do not expose my private OpenClaw Gateway, workspace, tools, memory, credentials, or admin surface.
 - Use placeholders for secrets and tell me exactly which secrets I need to store in my password manager.
-- If adding a live bridge, use one of the documented bridge recipes and verify unauthenticated bridge requests return 401.
+- If adding a live bridge, use one of the documented bridge recipes and verify unauthenticated bridge requests return 401 with npm run security:smoke:bridge.
 - Before finishing, run npm run check:syntax and npm run security:smoke.
 
 Deliver:
@@ -237,20 +237,26 @@ Run the fast security smoke check:
 npm run security:smoke
 ```
 
+When a local bridge is expected to be running:
+
+```bash
+npm run security:smoke:bridge
+```
+
 When the local bridge should exercise the live public-safe agent session:
 
 ```bash
 npm run security:smoke:live
 ```
 
-The smoke script checks tracked-file hygiene, syntax, local bridge health, and confirms unauthenticated bridge `/ask` returns `401`.
+The baseline smoke script checks tracked-file hygiene and syntax without requiring a bridge. App-level checks run when `CLAWBELL_APP_URL` is set. Bridge health and unauthenticated `/ask` rejection are explicit opt-ins via `security:smoke:bridge` or `security:smoke:live`.
 
 ## Usage visibility
 
 ClawBell has two usage paths because operators can deploy it in more than one shape:
 
 1. **Reusable Node app**: the hosted ClawBell app writes `data/conversations.jsonl`, `data/handoffs.jsonl`, and related bridge event files. The admin dashboard shows a last-24-hour usage panel, and `GET /api/usage` returns the same summary with admin auth.
-2. **Bridge-only / headless implementation**: a custom site can keep its own UI/API and use only `scripts/local-openclaw-bridge.mjs`. The local bridge writes `data/soren-bridge-usage.jsonl`, enforces its own visitor throttle, and exposes bearer-protected `GET /usage`.
+2. **Bridge-only / headless implementation**: a custom site can keep its own UI/API and use only `scripts/local-openclaw-bridge.mjs`. The local bridge writes `data/agent-bridge-usage.jsonl`, enforces its own visitor throttle, and exposes bearer-protected `GET /usage`.
 
 The usage summary includes:
 
@@ -283,11 +289,12 @@ For OpenClaw operators, the better pattern is usually an OpenClaw cron/reminder 
 
 - `npm start`: run the app
 - `GET /api/usage` with admin auth: summarize the last 24 hours of conversations, live bridge calls, fallbacks, filters, throttles, handoffs, errors, and approximate character usage
-- `GET /usage` on the local bridge with bearer auth: summarize bridge-only usage from `data/soren-bridge-usage.jsonl`
+- `GET /usage` on the local bridge with bearer auth: summarize bridge-only usage from `data/agent-bridge-usage.jsonl`
 - `npm run digest -- --hours=24`: summarize recent conversation, handoff, error, throttle, and bridge usage logs
 - `npm run check:syntax`: syntax check server/helper scripts
-- `npm run security:smoke`: fast security smoke check
-- `npm run security:smoke:live`: smoke check plus authenticated live bridge call
+- `npm run security:smoke`: fallback-safe baseline security smoke check, no bridge required
+- `npm run security:smoke:bridge`: baseline plus local bridge health and unauthenticated rejection checks
+- `npm run security:smoke:live`: bridge smoke plus authenticated live bridge call
 
 ## Docs map
 

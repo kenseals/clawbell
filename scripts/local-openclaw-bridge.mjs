@@ -6,18 +6,18 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const port = Number(process.env.PORT || 4599);
-const bridgeToken = process.env.SOREN_BRIDGE_TOKEN || '';
+const bridgeToken = process.env.AGENT_BRIDGE_TOKEN || process.env.CLAWBELL_BRIDGE_TOKEN || process.env.SOREN_BRIDGE_TOKEN || '';
 const openclawBin = process.env.OPENCLAW_BIN || 'openclaw';
-const sessionId = process.env.SOREN_SESSION_ID || 'public-clawbell-session';
-const promptLimit = Number(process.env.SOREN_BRIDGE_MAX_PROMPT_CHARS || 8000);
-const bodyLimit = Number(process.env.SOREN_BRIDGE_MAX_BODY_BYTES || 16384);
-const localWindowMs = Number(process.env.SOREN_BRIDGE_LOCAL_WINDOW_MS || 60_000);
-const localMaxRequests = Number(process.env.SOREN_BRIDGE_LOCAL_MAX_REQUESTS || 10);
-const localMaxConcurrent = Number(process.env.SOREN_BRIDGE_LOCAL_MAX_CONCURRENT || 1);
-const visitorWindowMs = Number(process.env.SOREN_BRIDGE_VISITOR_WINDOW_MS || 60 * 60_000);
-const visitorMaxRequests = Number(process.env.SOREN_BRIDGE_VISITOR_MAX_REQUESTS || 4);
-const usageLogPath = process.env.SOREN_BRIDGE_USAGE_LOG || new URL('../data/soren-bridge-usage.jsonl', import.meta.url).pathname;
-const expectedMarker = 'public-safe version of Ken Seals';
+const sessionId = process.env.AGENT_BRIDGE_SESSION_ID || process.env.CLAWBELL_SESSION_ID || process.env.SOREN_SESSION_ID || 'public-clawbell-session';
+const promptLimit = Number(process.env.AGENT_BRIDGE_MAX_PROMPT_CHARS || process.env.CLAWBELL_BRIDGE_MAX_PROMPT_CHARS || process.env.SOREN_BRIDGE_MAX_PROMPT_CHARS || 8000);
+const bodyLimit = Number(process.env.AGENT_BRIDGE_MAX_BODY_BYTES || process.env.CLAWBELL_BRIDGE_MAX_BODY_BYTES || process.env.SOREN_BRIDGE_MAX_BODY_BYTES || 16384);
+const localWindowMs = Number(process.env.AGENT_BRIDGE_LOCAL_WINDOW_MS || process.env.CLAWBELL_BRIDGE_LOCAL_WINDOW_MS || process.env.SOREN_BRIDGE_LOCAL_WINDOW_MS || 60_000);
+const localMaxRequests = Number(process.env.AGENT_BRIDGE_LOCAL_MAX_REQUESTS || process.env.CLAWBELL_BRIDGE_LOCAL_MAX_REQUESTS || process.env.SOREN_BRIDGE_LOCAL_MAX_REQUESTS || 10);
+const localMaxConcurrent = Number(process.env.AGENT_BRIDGE_LOCAL_MAX_CONCURRENT || process.env.CLAWBELL_BRIDGE_LOCAL_MAX_CONCURRENT || process.env.SOREN_BRIDGE_LOCAL_MAX_CONCURRENT || 1);
+const visitorWindowMs = Number(process.env.AGENT_BRIDGE_VISITOR_WINDOW_MS || process.env.CLAWBELL_BRIDGE_VISITOR_WINDOW_MS || process.env.SOREN_BRIDGE_VISITOR_WINDOW_MS || 60 * 60_000);
+const visitorMaxRequests = Number(process.env.AGENT_BRIDGE_VISITOR_MAX_REQUESTS || process.env.CLAWBELL_BRIDGE_VISITOR_MAX_REQUESTS || process.env.SOREN_BRIDGE_VISITOR_MAX_REQUESTS || 4);
+const usageLogPath = process.env.AGENT_BRIDGE_USAGE_LOG || process.env.CLAWBELL_BRIDGE_USAGE_LOG || process.env.SOREN_BRIDGE_USAGE_LOG || new URL('../data/agent-bridge-usage.jsonl', import.meta.url).pathname;
+const expectedMarker = 'public-safe';
 let inFlight = 0;
 let localBucket = { start: Date.now(), count: 0 };
 const visitorBuckets = new Map();
@@ -185,7 +185,7 @@ const server = http.createServer(async (req, res) => {
     ], { timeout: 70000, maxBuffer: 1024 * 1024 });
     const reply = extractOpenClawReply(stdout);
     if (!reply) throw new Error('empty_openclaw_reply');
-    await writeUsage({ event: 'ask', outcome: 'ok', source: 'soren-bridge', visitorId: visitorBudget.key, noteIntent: Boolean(meta.noteIntent), messagePreview: cleanText(meta.message, 300), messageChars: Number(meta.messageChars || 0), promptChars: prompt.length, replyChars: reply.length, durationMs: Date.now() - started });
+    await writeUsage({ event: 'ask', outcome: 'ok', source: 'agent-bridge', visitorId: visitorBudget.key, noteIntent: Boolean(meta.noteIntent), messagePreview: cleanText(meta.message, 300), messageChars: Number(meta.messageChars || 0), promptChars: prompt.length, replyChars: reply.length, durationMs: Date.now() - started });
     return json(res, 200, { reply });
   } catch (error) {
     console.error('[clawbell-bridge]', error?.message || error);

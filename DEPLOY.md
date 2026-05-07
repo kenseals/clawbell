@@ -44,9 +44,9 @@ ADMIN_TOKEN=<long-random-token>
 Optional live bridge:
 
 ```bash
-ENABLE_SOREN_BRIDGE=1
-SOREN_BRIDGE_URL=<https-bridge-url>
-SOREN_BRIDGE_TOKEN=<long-random-token>
+ENABLE_AGENT_BRIDGE=1
+AGENT_BRIDGE_URL=<https-bridge-url>
+AGENT_BRIDGE_TOKEN=<long-random-token>
 ```
 
 If no live bridge is configured, ClawBell should run in honest fallback mode.

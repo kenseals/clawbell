@@ -66,7 +66,7 @@ Use when the operator does not want live agent responses yet.
 Set:
 
 ```bash
-ENABLE_SOREN_BRIDGE=0
+ENABLE_AGENT_BRIDGE=0
 ```
 
 ClawBell will use static/fallback replies and still collect useful visitor context and handoffs.
@@ -119,16 +119,16 @@ ADMIN_TOKEN=<long-random-token>
 For a live bridge:
 
 ```bash
-ENABLE_SOREN_BRIDGE=1
-SOREN_BRIDGE_URL=<https-bridge-url>
-SOREN_BRIDGE_TOKEN=<bridge-token>
+ENABLE_AGENT_BRIDGE=1
+AGENT_BRIDGE_URL=<https-bridge-url>
+AGENT_BRIDGE_TOKEN=<bridge-token>
 ```
 
 If using Cloudflare Access in front of the bridge:
 
 ```bash
-SOREN_BRIDGE_ACCESS_CLIENT_ID=<cloudflare-access-client-id>
-SOREN_BRIDGE_ACCESS_CLIENT_SECRET=<cloudflare-access-client-secret>
+AGENT_BRIDGE_ACCESS_CLIENT_ID=<cloudflare-access-client-id>
+AGENT_BRIDGE_ACCESS_CLIENT_SECRET=<cloudflare-access-client-secret>
 ```
 
 ## Verification checklist
@@ -139,17 +139,23 @@ Run the syntax check:
 npm run check:syntax
 ```
 
-Then run the fast security smoke check and the smoke-test runbook in `CLAWBELL_VERIFY.md`:
+Then run the fallback-safe security smoke check and the smoke-test runbook in `CLAWBELL_VERIFY.md`:
 
 ```bash
 npm run security:smoke
+```
+
+If a local bridge is expected to be running, also run:
+
+```bash
+npm run security:smoke:bridge
 ```
 
 Before custom-domain launch, confirm:
 
 - `/health` works on the public ClawBell app
 - admin routes require the token when auth is enabled
-- normal public chat returns `source: soren-bridge` when the bridge is up
+- normal public chat returns `source: agent-bridge` when the bridge is up
 - sensitive/private prompts return `source: safety-filter`
 - operator/admin impersonation prompts return `source: operator-identity-filter`
 - bridge-down state returns fallback with `degraded: true`

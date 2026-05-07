@@ -25,7 +25,15 @@ npm run check:syntax
 npm run security:smoke
 ```
 
-This checks tracked-file hygiene, syntax, local bridge health, and confirms unauthenticated bridge `/ask` returns `401` without printing secrets.
+This checks tracked-file hygiene and syntax without requiring a running bridge.
+
+When the local bridge is expected to be running, run:
+
+```bash
+npm run security:smoke:bridge
+```
+
+This adds local bridge health and unauthenticated `/ask` rejection checks without printing secrets.
 
 To also exercise the live OpenClaw bridge session, run:
 
@@ -94,7 +102,7 @@ curl -sS \
 Expected:
 
 - fallback-only mode: `source` is `fallback`
-- live-bridge mode: `source` is `soren-bridge`
+- live-bridge mode: `source` is `agent-bridge`
 - reply stays within public-safe scope
 
 ### 2. Sensitive/private prompt

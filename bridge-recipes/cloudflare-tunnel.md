@@ -30,7 +30,7 @@ Do not expose OpenClaw Gateway directly.
 
 ## Requirements
 
-- a Cloudflare-managed zone/hostname for the bridge, e.g. `soren-bridge.example.com`
+- a Cloudflare-managed zone/hostname for the bridge, e.g. `agent-bridge.example.com`
 - `cloudflared` installed on the OpenClaw host
 - Cloudflare Tunnel configured for `http://127.0.0.1:4599`
 - Cloudflare Access self-hosted app for the bridge hostname
@@ -39,11 +39,11 @@ Do not expose OpenClaw Gateway directly.
 ## ClawBell host env vars
 
 ```bash
-ENABLE_SOREN_BRIDGE=1
-SOREN_BRIDGE_URL=https://soren-bridge.example.com/ask
-SOREN_BRIDGE_TOKEN=<local-bridge-token>
-SOREN_BRIDGE_ACCESS_CLIENT_ID=<cloudflare-access-client-id>
-SOREN_BRIDGE_ACCESS_CLIENT_SECRET=<cloudflare-access-client-secret>
+ENABLE_AGENT_BRIDGE=1
+AGENT_BRIDGE_URL=https://agent-bridge.example.com/ask
+AGENT_BRIDGE_TOKEN=<local-bridge-token>
+AGENT_BRIDGE_ACCESS_CLIENT_ID=<cloudflare-access-client-id>
+AGENT_BRIDGE_ACCESS_CLIENT_SECRET=<cloudflare-access-client-secret>
 ```
 
 The ClawBell server should send both Cloudflare Access headers and the local bearer token on bridge requests.
@@ -54,5 +54,5 @@ The ClawBell server should send both Cloudflare Access headers and the local bea
 2. Cloudflare token only: reaches bridge but bridge returns 401.
 3. Bearer only: rejected by Cloudflare.
 4. Both tokens: returns `{ reply }`.
-5. Public ClawBell normal chat returns `source: soren-bridge`.
+5. Public ClawBell normal chat returns `source: agent-bridge`.
 6. Public ClawBell sensitive/operator prompts are blocked before bridge call.

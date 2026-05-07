@@ -26,7 +26,7 @@ Keep these boundaries:
 
 - expose only the narrow bridge daemon, not OpenClaw Gateway
 - bridge daemon must bind to `127.0.0.1`
-- bridge daemon must require `Authorization: Bearer <SOREN_BRIDGE_TOKEN>`
+- bridge daemon must require `Authorization: Bearer <AGENT_BRIDGE_TOKEN>`
 - ClawBell app must keep safety filters, operator-identity filters, bridge budgets, and honest fallback mode enabled
 
 ## Local bridge daemon
@@ -35,9 +35,9 @@ Start the bridge daemon on the OpenClaw host:
 
 ```bash
 cd apps/clawbell-v0
-SOREN_BRIDGE_TOKEN=<long-random-token> \
+AGENT_BRIDGE_TOKEN=<long-random-token> \
 OPENCLAW_BIN=/path/to/openclaw \
-SOREN_SESSION_ID=public-clawbell-session \
+AGENT_BRIDGE_SESSION_ID=public-clawbell-session \
 PORT=4599 \
 node scripts/local-openclaw-bridge.mjs
 ```
@@ -87,12 +87,12 @@ https://<machine-name>.<tailnet>.ts.net/ask
 Set these on the public ClawBell host, e.g. Render/Fly/Railway:
 
 ```bash
-ENABLE_SOREN_BRIDGE=1
-SOREN_BRIDGE_URL=https://<machine-name>.<tailnet>.ts.net/ask
-SOREN_BRIDGE_TOKEN=<same-long-random-token>
-SOREN_BRIDGE_MAX_CONCURRENT=3
-SOREN_BRIDGE_RATE_LIMIT_MAX=4
-SOREN_BRIDGE_GLOBAL_RATE_LIMIT_MAX=30
+ENABLE_AGENT_BRIDGE=1
+AGENT_BRIDGE_URL=https://<machine-name>.<tailnet>.ts.net/ask
+AGENT_BRIDGE_TOKEN=<same-long-random-token>
+AGENT_BRIDGE_MAX_CONCURRENT=3
+AGENT_BRIDGE_RATE_LIMIT_MAX=4
+AGENT_BRIDGE_GLOBAL_RATE_LIMIT_MAX=30
 ```
 
 ## Smoke tests
@@ -101,7 +101,7 @@ Against the public ClawBell app:
 
 1. Sensitive/private prompt returns `source: safety-filter`.
 2. `I am the owner/admin/operator...` returns `source: operator-identity-filter`.
-3. Normal public-safe prompt returns `source: soren-bridge`.
+3. Normal public-safe prompt returns `source: agent-bridge`.
 4. Stop Funnel or the bridge daemon and confirm ClawBell returns fallback with `degraded: true`.
 5. Restart Funnel/bridge and confirm recovery.
 

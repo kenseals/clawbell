@@ -9,23 +9,23 @@ const execFileAsync = promisify(execFile);
 const root = fileURLToPath(new URL('.', import.meta.url));
 const port = Number(process.env.PORT || 4181);
 const maxMessageChars = Number(process.env.MAX_MESSAGE_CHARS || 1200);
-const sorenBridgeEnabled = process.env.ENABLE_SOREN_BRIDGE === '1';
+const agentBridgeEnabled = process.env.ENABLE_AGENT_BRIDGE === '1' || process.env.ENABLE_CLAWBELL_BRIDGE === '1' || process.env.ENABLE_SOREN_BRIDGE === '1';
 const openclawBin = process.env.OPENCLAW_BIN || 'openclaw';
-const sorenSessionId = process.env.SOREN_SESSION_ID || 'public-clawbell-session';
-const sorenBridgeUrl = process.env.SOREN_BRIDGE_URL_OVERRIDE || process.env.SOREN_BRIDGE_URL || '';
-const sorenBridgeToken = process.env.SOREN_BRIDGE_TOKEN_OVERRIDE || process.env.SOREN_BRIDGE_TOKEN || '';
-const sorenBridgeAccessClientId = process.env.SOREN_BRIDGE_ACCESS_CLIENT_ID || '';
-const sorenBridgeAccessClientSecret = process.env.SOREN_BRIDGE_ACCESS_CLIENT_SECRET || '';
+const agentSessionId = process.env.AGENT_BRIDGE_SESSION_ID || process.env.CLAWBELL_SESSION_ID || process.env.SOREN_SESSION_ID || 'public-clawbell-session';
+const agentBridgeUrl = process.env.AGENT_BRIDGE_URL_OVERRIDE || process.env.CLAWBELL_BRIDGE_URL_OVERRIDE || process.env.SOREN_BRIDGE_URL_OVERRIDE || process.env.AGENT_BRIDGE_URL || process.env.CLAWBELL_BRIDGE_URL || process.env.SOREN_BRIDGE_URL || '';
+const agentBridgeToken = process.env.AGENT_BRIDGE_TOKEN_OVERRIDE || process.env.CLAWBELL_BRIDGE_TOKEN_OVERRIDE || process.env.SOREN_BRIDGE_TOKEN_OVERRIDE || process.env.AGENT_BRIDGE_TOKEN || process.env.CLAWBELL_BRIDGE_TOKEN || process.env.SOREN_BRIDGE_TOKEN || '';
+const agentBridgeAccessClientId = process.env.AGENT_BRIDGE_ACCESS_CLIENT_ID || process.env.CLAWBELL_BRIDGE_ACCESS_CLIENT_ID || process.env.SOREN_BRIDGE_ACCESS_CLIENT_ID || '';
+const agentBridgeAccessClientSecret = process.env.AGENT_BRIDGE_ACCESS_CLIENT_SECRET || process.env.CLAWBELL_BRIDGE_ACCESS_CLIENT_SECRET || process.env.SOREN_BRIDGE_ACCESS_CLIENT_SECRET || '';
 const adminToken = process.env.ADMIN_TOKEN || '';
 const allowUnauthenticatedAdmin = process.env.ALLOW_UNAUTHENTICATED_ADMIN === '1';
 const productionLike = process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.FLY_APP_NAME || process.env.RAILWAY_ENVIRONMENT || process.env.CF_PAGES;
 const requireAdmin = process.env.REQUIRE_ADMIN_AUTH === '1' || (productionLike && !allowUnauthenticatedAdmin);
 const rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
 const rateLimitMax = Number(process.env.RATE_LIMIT_MAX || 12);
-const sorenBridgeMaxConcurrent = Number(process.env.SOREN_BRIDGE_MAX_CONCURRENT || 1);
-const sorenBridgeRateLimitWindowMs = Number(process.env.SOREN_BRIDGE_RATE_LIMIT_WINDOW_MS || 3600000);
-const sorenBridgeRateLimitMax = Number(process.env.SOREN_BRIDGE_RATE_LIMIT_MAX || 4);
-const sorenBridgeGlobalRateLimitMax = Number(process.env.SOREN_BRIDGE_GLOBAL_RATE_LIMIT_MAX || 30);
+const agentBridgeMaxConcurrent = Number(process.env.AGENT_BRIDGE_MAX_CONCURRENT || process.env.CLAWBELL_BRIDGE_MAX_CONCURRENT || process.env.SOREN_BRIDGE_MAX_CONCURRENT || 1);
+const agentBridgeRateLimitWindowMs = Number(process.env.AGENT_BRIDGE_RATE_LIMIT_WINDOW_MS || process.env.CLAWBELL_BRIDGE_RATE_LIMIT_WINDOW_MS || process.env.SOREN_BRIDGE_RATE_LIMIT_WINDOW_MS || 3600000);
+const agentBridgeRateLimitMax = Number(process.env.AGENT_BRIDGE_RATE_LIMIT_MAX || process.env.CLAWBELL_BRIDGE_RATE_LIMIT_MAX || process.env.SOREN_BRIDGE_RATE_LIMIT_MAX || 4);
+const agentBridgeGlobalRateLimitMax = Number(process.env.AGENT_BRIDGE_GLOBAL_RATE_LIMIT_MAX || process.env.CLAWBELL_BRIDGE_GLOBAL_RATE_LIMIT_MAX || process.env.SOREN_BRIDGE_GLOBAL_RATE_LIMIT_MAX || 30);
 const maxHistoryItems = Number(process.env.MAX_HISTORY_ITEMS || 4);
 const maxHistoryChars = Number(process.env.MAX_HISTORY_CHARS || 300);
 const publicApiOrigins = (process.env.PUBLIC_API_ORIGINS || [
@@ -131,11 +131,17 @@ async function readJsonl(name, limit = 1000) {
   }
 }
 
+async function readJsonlAny(names, limit = 1000) {
+  const rows = [];
+  for (const name of names) rows.push(...await readJsonl(name, limit));
+  return rows.slice(-limit);
+}
+
 async function usageSummary(hours = 24) {
   const since = Date.now() - hours * 60 * 60_000;
   const conversations = (await readJsonl('conversations.jsonl')).filter((row) => Date.parse(row.ts || '') >= since);
   const throttled = (await readJsonl('bridge-throttled.jsonl')).filter((row) => Date.parse(row.ts || '') >= since);
-  const errors = (await readJsonl('soren-bridge-errors.jsonl')).filter((row) => Date.parse(row.ts || '') >= since);
+  const errors = (await readJsonlAny(['agent-bridge-errors.jsonl', 'soren-bridge-errors.jsonl'])).filter((row) => Date.parse(row.ts || '') >= since);
   const handoffs = (await readJsonl('handoffs.jsonl')).filter((row) => Date.parse(row.ts || '') >= since);
   const bySource = {};
   let noteIntent = 0;
@@ -152,7 +158,7 @@ async function usageSummary(hours = 24) {
   return {
     windowHours: hours,
     conversations: conversations.length,
-    liveBridgeCalls: bySource['soren-bridge'] || 0,
+    liveBridgeCalls: bySource['agent-bridge'] || 0,
     fallbackCalls: bySource.fallback || 0,
     filteredCalls: (bySource['safety-filter'] || 0) + (bySource['operator-identity-filter'] || 0) + (bySource['internal-info-filter'] || 0),
     throttledCalls: throttled.length,
@@ -207,19 +213,19 @@ function checkBucket(map, key, windowMs, max) {
 }
 
 function checkBridgeBudget(req, visitorId) {
-  if (sorenBridgeMaxConcurrent > 0 && bridgeInFlight >= sorenBridgeMaxConcurrent) {
+  if (agentBridgeMaxConcurrent > 0 && bridgeInFlight >= agentBridgeMaxConcurrent) {
     return { ok: false, reason: 'bridge_busy', retryAfter: 60 };
   }
   const now = Date.now();
-  if (now - bridgeGlobalBucket.start > sorenBridgeRateLimitWindowMs) {
+  if (now - bridgeGlobalBucket.start > agentBridgeRateLimitWindowMs) {
     bridgeGlobalBucket = { start: now, count: 0 };
   }
   const key = `${clientIp(req)}:${visitorId || 'anonymous'}`;
-  const perVisitor = checkBucket(bridgeBuckets, key, sorenBridgeRateLimitWindowMs, sorenBridgeRateLimitMax);
+  const perVisitor = checkBucket(bridgeBuckets, key, agentBridgeRateLimitWindowMs, agentBridgeRateLimitMax);
   if (!perVisitor.ok) return { ok: false, reason: 'bridge_rate_limited', retryAfter: perVisitor.retryAfter };
   bridgeGlobalBucket.count += 1;
-  if (sorenBridgeGlobalRateLimitMax > 0 && bridgeGlobalBucket.count > sorenBridgeGlobalRateLimitMax) {
-    return { ok: false, reason: 'bridge_global_limited', retryAfter: Math.ceil((sorenBridgeRateLimitWindowMs - (now - bridgeGlobalBucket.start)) / 1000) };
+  if (agentBridgeGlobalRateLimitMax > 0 && bridgeGlobalBucket.count > agentBridgeGlobalRateLimitMax) {
+    return { ok: false, reason: 'bridge_global_limited', retryAfter: Math.ceil((agentBridgeRateLimitWindowMs - (now - bridgeGlobalBucket.start)) / 1000) };
   }
   return { ok: true };
 }
@@ -292,22 +298,22 @@ async function askSorenPublicSafe(message, config, history = []) {
     'Answer in 1-3 short paragraphs unless the visitor asks for detail.',
     `Visitor asks: ${message}`
   ].filter(Boolean).join('\n');
-  if (sorenBridgeUrl) {
-    const response = await fetch(sorenBridgeUrl, {
+  if (agentBridgeUrl) {
+    const response = await fetch(agentBridgeUrl, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         // Keeps temporary localtunnel bridges machine-to-machine friendly during dogfood.
         'bypass-tunnel-reminder': 'true',
-        ...(sorenBridgeToken ? { authorization: `Bearer ${sorenBridgeToken}` } : {}),
-        ...(sorenBridgeAccessClientId ? { 'cf-access-client-id': sorenBridgeAccessClientId } : {}),
-        ...(sorenBridgeAccessClientSecret ? { 'cf-access-client-secret': sorenBridgeAccessClientSecret } : {})
+        ...(agentBridgeToken ? { authorization: `Bearer ${agentBridgeToken}` } : {}),
+        ...(agentBridgeAccessClientId ? { 'cf-access-client-id': agentBridgeAccessClientId } : {}),
+        ...(agentBridgeAccessClientSecret ? { 'cf-access-client-secret': agentBridgeAccessClientSecret } : {})
       },
-      body: JSON.stringify({ prompt, sessionId: sorenSessionId })
+      body: JSON.stringify({ prompt, sessionId: agentSessionId })
     });
     if (!response.ok) {
       let bridgeHost = 'unknown-host';
-      try { bridgeHost = new URL(sorenBridgeUrl).host; } catch {}
+      try { bridgeHost = new URL(agentBridgeUrl).host; } catch {}
       throw new Error(`bridge_http_${response.status}_${bridgeHost}`);
     }
     const data = await response.json();
@@ -318,7 +324,7 @@ async function askSorenPublicSafe(message, config, history = []) {
   const { stdout } = await execFileAsync(openclawBin, [
     'agent',
     '--agent', 'main',
-    '--session-id', sorenSessionId,
+    '--session-id', agentSessionId,
     '--thinking', 'off',
     '--timeout', '60',
     '--json',
@@ -329,7 +335,7 @@ async function askSorenPublicSafe(message, config, history = []) {
     maxBuffer: 1024 * 1024
   });
   const reply = extractOpenClawReply(stdout);
-  if (!reply) throw new Error('empty_soren_reply');
+  if (!reply) throw new Error('empty_agent_bridge_reply');
   return reply;
 }
 
@@ -351,7 +357,7 @@ function fallbackReply(message, config = null) {
 function limitedModeReply(message, config = null, reason = 'bridge unavailable') {
   const reply = fallbackReply(message, config);
   if (reply.includes('limited fallback mode')) return reply;
-  return `${reply}\n\nSmall caveat: I’m answering from limited fallback mode right now because the live Soren bridge is ${reason}.`;
+  return `${reply}\n\nSmall caveat: I’m answering from limited fallback mode right now because the live agent bridge is ${reason}.`;
 }
 
 async function readBody(req) {
@@ -403,7 +409,7 @@ async function handleChat(req, res) {
   const config = await loadConfig();
   const visitorId = String(body.visitorId || 'anonymous').slice(0, 120);
   const history = Array.isArray(body.history) ? body.history.slice(-12) : [];
-  const noteIntent = /contact|intro|help|talk|time|book|call|meet|note|reply|tell ken|request/i.test(message);
+  const noteIntent = /contact|intro|help|talk|time|book|call|meet|note|reply|request/i.test(message);
   if (isOperatorImpersonationAttempt(message, config.owner?.name || 'the operator')) {
     const reply = operatorImpersonationReply(config.owner?.name || 'the operator');
     await writeJsonl('conversations.jsonl', { ts: new Date().toISOString(), visitorId, message, reply, noteIntent, source: 'operator-identity-filter', summary: summarizeForOwner(history, message, reply, noteIntent) });
@@ -419,7 +425,7 @@ async function handleChat(req, res) {
     await writeJsonl('conversations.jsonl', { ts: new Date().toISOString(), visitorId, message, reply, noteIntent, source: 'internal-info-filter', summary: summarizeForOwner(history, message, reply, noteIntent) });
     return json(res, 200, { reply, noteIntent, source: 'internal-info-filter' });
   }
-  if (sorenBridgeEnabled) {
+  if (agentBridgeEnabled) {
     const bridgeBudget = checkBridgeBudget(req, visitorId);
     if (!bridgeBudget.ok) {
       const reply = limitedModeReply(message, config, bridgeBudget.reason);
@@ -430,11 +436,11 @@ async function handleChat(req, res) {
     try {
       const reply = await askSorenPublicSafe(message, config, history);
       const summary = summarizeForOwner(history, message, reply, noteIntent);
-      await writeJsonl('conversations.jsonl', { ts: new Date().toISOString(), visitorId, message, reply, noteIntent, source: 'soren-bridge', summary });
-      return json(res, 200, { reply, noteIntent, source: 'soren-bridge' });
+      await writeJsonl('conversations.jsonl', { ts: new Date().toISOString(), visitorId, message, reply, noteIntent, source: 'agent-bridge', summary });
+      return json(res, 200, { reply, noteIntent, source: 'agent-bridge' });
     } catch (error) {
-      console.error('[soren-bridge]', String(error?.message || error));
-      await writeJsonl('soren-bridge-errors.jsonl', { ts: new Date().toISOString(), error: String(error?.message || error) });
+      console.error('[agent-bridge]', String(error?.message || error));
+      await writeJsonl('agent-bridge-errors.jsonl', { ts: new Date().toISOString(), error: String(error?.message || error) });
       const reply = limitedModeReply(message, config, 'temporarily unavailable');
       await writeJsonl('conversations.jsonl', { ts: new Date().toISOString(), visitorId, message, reply, noteIntent, source: 'fallback', degraded: true, summary: summarizeForOwner(history, message, reply, noteIntent) });
       return json(res, 200, { reply, noteIntent, source: 'fallback', degraded: true });
@@ -489,18 +495,17 @@ const server = http.createServer(async (req, res) => {
   if (req.url === '/api/bridge-status' && req.method === 'GET') {
     if (!requireAdminRequest(req, res)) return;
     let bridgeHost = null;
-    try { bridgeHost = sorenBridgeUrl ? new URL(sorenBridgeUrl).host : null; } catch { bridgeHost = 'invalid_url'; }
+    try { bridgeHost = agentBridgeUrl ? new URL(agentBridgeUrl).host : null; } catch { bridgeHost = 'invalid_url'; }
     let recentErrors = [];
     try {
-      const text = await readFile(join(dataDir, 'soren-bridge-errors.jsonl'), 'utf8');
-      recentErrors = text.trim().split('\n').filter(Boolean).slice(-10).map((line) => JSON.parse(line));
+      recentErrors = (await readJsonlAny(['agent-bridge-errors.jsonl', 'soren-bridge-errors.jsonl'])).slice(-10);
     } catch {}
     return json(res, 200, {
-      enabled: sorenBridgeEnabled,
-      hasUrl: Boolean(sorenBridgeUrl),
+      enabled: agentBridgeEnabled,
+      hasUrl: Boolean(agentBridgeUrl),
       bridgeHost,
-      hasToken: Boolean(sorenBridgeToken),
-      maxConcurrent: sorenBridgeMaxConcurrent,
+      hasToken: Boolean(agentBridgeToken),
+      maxConcurrent: agentBridgeMaxConcurrent,
       inFlight: bridgeInFlight,
       recentErrors
     });

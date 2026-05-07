@@ -19,6 +19,12 @@ async function readJsonl(name) {
   catch { return []; }
 }
 
+async function readJsonlAny(names) {
+  const rows = [];
+  for (const name of names) rows.push(...await readJsonl(name));
+  return rows;
+}
+
 function withinWindow(record) {
   const time = Date.parse(record.ts || '');
   return Number.isFinite(time) && time >= since;
@@ -39,9 +45,9 @@ function isLikelyImportant(record) {
 
 const conversations = (await readJsonl('conversations.jsonl')).filter(withinWindow);
 const handoffs = (await readJsonl('handoffs.jsonl')).filter(withinWindow);
-const bridgeErrors = (await readJsonl('soren-bridge-errors.jsonl')).filter(withinWindow);
+const bridgeErrors = (await readJsonlAny(['agent-bridge-errors.jsonl', 'soren-bridge-errors.jsonl'])).filter(withinWindow);
 const throttled = (await readJsonl('bridge-throttled.jsonl')).filter(withinWindow);
-const bridgeUsage = (await readJsonl('soren-bridge-usage.jsonl')).filter(withinWindow);
+const bridgeUsage = (await readJsonlAny(['agent-bridge-usage.jsonl', 'soren-bridge-usage.jsonl'])).filter(withinWindow);
 
 const bySource = conversations.reduce((acc, item) => {
   const key = item.source || 'unknown';

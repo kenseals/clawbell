@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>ai.clawbell.soren-bridge</string>
+  <string>ai.clawbell.agent-bridge</string>
 
   <key>ProgramArguments</key>
   <array>
@@ -22,10 +22,9 @@
     <string>4599</string>
     <key>OPENCLAW_BIN</key>
     <string>/path/to/openclaw</string>
-    <!-- Deprecated dogfood naming. Prefer ai.clawbell.agent-bridge.plist.template for new installs. -->
-    <key>SOREN_SESSION_ID</key>
+    <key>AGENT_BRIDGE_SESSION_ID</key>
     <string>public-clawbell-session</string>
-    <key>SOREN_BRIDGE_TOKEN</key>
+    <key>AGENT_BRIDGE_TOKEN</key>
     <string>REPLACE_WITH_LONG_RANDOM_TOKEN</string>
   </dict>
 

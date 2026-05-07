@@ -97,7 +97,7 @@ async function sendMessage(text) {
     const data = await res.json();
     typing.remove();
     const reply = data.reply || 'I can help with public questions or save a handoff for the operator.';
-    const meta = data.source === 'soren-bridge'
+    const meta = data.source === 'agent-bridge' || data.source === 'soren-bridge'
       ? '<small class="bubble-meta">Connected to public agent</small>'
       : data.degraded || data.source === 'fallback'
         ? '<small class="bubble-meta">Limited mode</small>'

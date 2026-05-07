@@ -29,7 +29,7 @@ Rotation:
 3. Restart/redeploy the Node service.
 4. Verify admin routes reject the old token and accept the new token.
 
-### `SOREN_BRIDGE_TOKEN`
+### `AGENT_BRIDGE_TOKEN`
 
 Purpose: authenticates the public app or Worker to the narrow bridge `/ask` endpoint.
 
@@ -51,7 +51,7 @@ Rotation:
    - authenticated bridge `/ask` returns `200`
    - public `/api/chat` returns either live bridge source or honest fallback
 
-### `SOREN_BRIDGE_ACCESS_CLIENT_ID` and `SOREN_BRIDGE_ACCESS_CLIENT_SECRET`
+### `AGENT_BRIDGE_ACCESS_CLIENT_ID` and `AGENT_BRIDGE_ACCESS_CLIENT_SECRET`
 
 Purpose: optional Cloudflare Zero Trust Access service-token headers for defense in depth.
 
