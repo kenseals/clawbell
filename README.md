@@ -58,6 +58,8 @@ If you keep one idea: **ClawBell is a boundary, not a backdoor.**
 - Narrow live-bridge support with `ENABLE_SOREN_BRIDGE=1`
 - Basic rate limits and bridge budgets
 - JSONL conversation/handoff logs for self-hosted deployments
+- `/api/usage` admin endpoint and dashboard stats for live calls, fallbacks, filtered/refused prompts, throttles, handoffs, errors, and approximate character usage
+- Local bridge `/usage` endpoint for bridge-only deployments, backed by `data/soren-bridge-usage.jsonl`
 - Operator digest helper
 - Bridge recipes for Cloudflare Tunnel, Tailscale Funnel, and custom HTTPS
 - Security/readiness docs for public deployment
@@ -237,6 +239,8 @@ The smoke script checks tracked-file hygiene, syntax, local bridge health, and c
 ## Scripts
 
 - `npm start`: run the app
+- `GET /api/usage` with admin auth: summarize the last 24 hours of conversations, live bridge calls, fallbacks, filters, throttles, handoffs, errors, and approximate character usage
+- `GET /usage` on the local bridge with bearer auth: summarize bridge-only usage from `data/soren-bridge-usage.jsonl`
 - `npm run digest -- --hours=24`: summarize recent conversation/handoff logs
 - `npm run check:syntax`: syntax check server/helper scripts
 - `npm run security:smoke`: fast security smoke check
