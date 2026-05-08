@@ -211,15 +211,19 @@ a:hover { color:#000; }
 }
 .quick button:hover { transform:translateY(-1px); background:white; border-color:#ded7cc; }
 .composer textarea {
+  display:block;
   width:100%;
   border:1px solid var(--line);
   border-radius:1rem;
   padding:.74rem .84rem;
   font:inherit;
+  font-size:16px;
   color:var(--ink);
   background:rgba(255,255,255,.8);
   resize:none;
   outline:none;
+  appearance:none;
+  -webkit-appearance:none;
   transition:border-color .18s ease, box-shadow .18s ease, background .18s ease;
 }
 .composer textarea:focus {
@@ -255,6 +259,8 @@ a:hover { color:#000; }
   background:var(--veil);
   box-shadow:0 18px 70px rgba(24,24,27,.1);
   backdrop-filter:blur(22px);
+  cursor:text;
+  touch-action:manipulation;
 }
 .composer textarea {
   min-height:46px;

@@ -27,11 +27,21 @@ if (widgetMode) {
   widgetLauncher.hidden = true;
 }
 
+function focusPrompt() {
+  if (!prompt || prompt.disabled) return;
+  prompt.focus({ preventScroll: true });
+}
+
+function focusPromptFromComposer(event) {
+  if (!composer?.contains(event.target)) return;
+  focusPrompt();
+}
+
 widgetLauncher.addEventListener('click', () => {
   const closed = document.body.classList.toggle('widget-closed');
   chatRoot.hidden = closed;
   widgetLauncher.setAttribute('aria-expanded', String(!closed));
-  if (!closed) prompt.focus();
+  if (!closed) focusPrompt();
 });
 
 
@@ -113,6 +123,10 @@ async function sendMessage(text) {
     prompt.focus();
   }
 }
+
+composer.addEventListener('pointerdown', focusPromptFromComposer);
+composer.addEventListener('touchstart', focusPromptFromComposer, { passive: true });
+composer.addEventListener('click', focusPromptFromComposer);
 
 composer.addEventListener('submit', event => {
   event.preventDefault();
