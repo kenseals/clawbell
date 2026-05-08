@@ -321,7 +321,7 @@ function summarizeForOwner(messages, latest, reply, noteIntent) {
   return { asked: latest.slice(0, 240), reason: noteIntent ? 'visitor note or contact intent in chat' : 'no escalation', messageCount: messages.length, replyPreview: reply.slice(0, 240) };
 }
 
-async function askAgentPublicSafe(message, env, config, history = []) {
+async function askAgentPublicSafe(message, env, config, history = [], visitorId = 'anonymous') {
   const recentHistory = publicHistoryText(history, env);
   const prompt = [
     `You are ${config.owner?.agentName || 'ClawBell'}, a public-safe website agent answering a visitor.`,
@@ -349,7 +349,12 @@ async function askAgentPublicSafe(message, env, config, history = []) {
   const response = await fetch(bridgeUrl, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ prompt, sessionId: env.AGENT_BRIDGE_SESSION_ID || env.CLAWBELL_SESSION_ID || env.SOREN_SESSION_ID || 'public-clawbell-session', meta: { message, messageChars: message.length, historyCount: Array.isArray(history) ? history.length : 0 } })
+    body: JSON.stringify({
+      prompt,
+      sessionId: env.AGENT_BRIDGE_SESSION_ID || env.CLAWBELL_SESSION_ID || env.SOREN_SESSION_ID || 'public-clawbell-session',
+      visitorId,
+      meta: { message, visitorId, messageChars: message.length, historyCount: Array.isArray(history) ? history.length : 0 }
+    })
   });
   if (!response.ok) throw new Error(`bridge_http_${response.status}`);
   const data = await response.json();
@@ -387,7 +392,7 @@ async function handleChat(request, env) {
     if (!bridgeBudget.ok) return json({ reply: limitedModeReply(message, config, bridgeBudget.reason), noteIntent, source: 'fallback', throttled: true, retryAfter: bridgeBudget.retryAfter });
     bridgeInFlight += 1;
     try {
-      const reply = await askAgentPublicSafe(message, env, config, history);
+      const reply = await askAgentPublicSafe(message, env, config, history, visitorId);
       console.log(JSON.stringify({ event: 'chat', source: 'agent-bridge', noteIntent, visitorId, summary: summarizeForOwner(history, message, reply, noteIntent) }));
       return json({ reply, noteIntent, source: 'agent-bridge' });
     } catch (error) {
