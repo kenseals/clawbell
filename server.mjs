@@ -20,6 +20,7 @@ const adminToken = process.env.ADMIN_TOKEN || '';
 const allowUnauthenticatedAdmin = process.env.ALLOW_UNAUTHENTICATED_ADMIN === '1';
 const productionLike = process.env.NODE_ENV === 'production' || process.env.RENDER || process.env.FLY_APP_NAME || process.env.RAILWAY_ENVIRONMENT || process.env.CF_PAGES;
 const requireAdmin = process.env.REQUIRE_ADMIN_AUTH === '1' || (productionLike && !allowUnauthenticatedAdmin);
+const siteConfigToken = process.env.CLAWBELL_SITE_CONFIG_TOKEN || process.env.SITE_CONFIG_TOKEN || '';
 const rateLimitWindowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
 const rateLimitMax = Number(process.env.RATE_LIMIT_MAX || 12);
 const agentBridgeMaxConcurrent = Number(process.env.AGENT_BRIDGE_MAX_CONCURRENT || process.env.CLAWBELL_BRIDGE_MAX_CONCURRENT || process.env.SOREN_BRIDGE_MAX_CONCURRENT || 1);
@@ -57,6 +58,10 @@ async function loadConfig() {
   } catch {
     return JSON.parse(await readFile(join(root, 'config.example.json'), 'utf8'));
   }
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 function publicConfig(config) {
@@ -379,6 +384,7 @@ function validateConfig(config) {
   if (config.conversation && typeof config.conversation !== 'object') return false;
   const conversation = config.conversation || {};
   return ['name', 'sitePurpose', 'agentName', 'agentSubtitle'].every((key) => typeof config.owner[key] === 'string')
+    && typeof config.starter.title === 'string'
     && typeof config.starter.message === 'string'
     && isStringArray(config.starter.prompts)
     && isStringArray(config.publicContext.allowedTopics)
@@ -396,6 +402,24 @@ async function saveConfig(config) {
   await writeFile(join(root, 'config.local.json'), JSON.stringify(config, null, 2) + '\n');
 }
 
+function requestCanOverrideSiteConfig(req) {
+  if (!siteConfigToken) return !productionLike;
+  return req.headers['x-clawbell-site-config-token'] === siteConfigToken;
+}
+
+async function configForChat(req, siteConfigOverride) {
+  const baseConfig = await loadConfig();
+  if (siteConfigOverride === undefined) return baseConfig;
+  if (!requestCanOverrideSiteConfig(req)) throw new Error('site_config_forbidden');
+  if (!validateConfig(siteConfigOverride)) throw new Error('invalid_site_config');
+  const nextConfig = cloneJson(baseConfig);
+  nextConfig.owner = cloneJson(siteConfigOverride.owner);
+  nextConfig.publicContext = cloneJson(siteConfigOverride.publicContext);
+  nextConfig.starter = cloneJson(siteConfigOverride.starter);
+  nextConfig.conversation = cloneJson(siteConfigOverride.conversation || {});
+  return nextConfig;
+}
+
 async function handleChat(req, res) {
   const limit = checkRateLimit(req);
   if (!limit.ok) {
@@ -406,7 +430,14 @@ async function handleChat(req, res) {
   if (!body) return json(res, 400, { error: 'invalid_json' });
   const message = String(body.message || '').trim().slice(0, maxMessageChars);
   if (!message) return json(res, 400, { error: 'empty_message' });
-  const config = await loadConfig();
+  let config;
+  try {
+    config = await configForChat(req, body.siteConfig);
+  } catch (error) {
+    if (String(error?.message || error) === 'site_config_forbidden') return json(res, 403, { error: 'site_config_forbidden' });
+    if (String(error?.message || error) === 'invalid_site_config') return json(res, 400, { error: 'invalid_site_config' });
+    throw error;
+  }
   const visitorId = String(body.visitorId || 'anonymous').slice(0, 120);
   const history = Array.isArray(body.history) ? body.history.slice(-12) : [];
   const noteIntent = /contact|intro|help|talk|time|book|call|meet|note|reply|request/i.test(message);

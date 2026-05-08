@@ -186,7 +186,7 @@ ClawBell supports four intended integration modes:
 
 1. **Hosted UI**: ClawBell owns the page UI at `/`.
 2. **Widget/modal embed**: your site owns the page; ClawBell appears behind a “Talk to my Claw” button or iframe panel.
-3. **Headless API**: your site owns the entire UI and calls ClawBell’s `/api/chat` endpoint. A custom operator site can use this mode.
+3. **Headless API**: your site owns the entire UI and calls ClawBell’s `/api/chat` endpoint. Custom sites can keep their site-specific public config locally and send it as `siteConfig` from a trusted same-origin API/Worker with `CLAWBELL_SITE_CONFIG_TOKEN`.
 4. **Bridge-only adapter**: advanced mode where you reuse the narrow bridge pattern with your own public API/safety layer.
 
 See [INTEGRATION_MODES.md](INTEGRATION_MODES.md) for examples, request/response shape, and current gaps.

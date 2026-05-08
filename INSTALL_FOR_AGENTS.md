@@ -26,7 +26,7 @@ Choose how ClawBell should appear to visitors:
 
 1. **Hosted UI**: ClawBell owns the page UI at `/`.
 2. **Widget/modal embed**: the operator site owns the page; ClawBell appears behind a button or iframe panel via `/?mode=widget`.
-3. **Headless API**: the operator site owns the UI and calls `/api/chat` directly. A custom operator site can dogfood this mode.
+3. **Headless API**: the operator site owns the UI and calls `/api/chat` through a trusted same-origin API/Worker. Keep site-specific public config in the operator-site repo and send it as `siteConfig` server-to-server with `CLAWBELL_SITE_CONFIG_TOKEN` instead of copying ClawBell backend behavior.
 4. **Bridge-only adapter**: advanced operators reuse the narrow bridge pattern with their own public API/safety layer.
 
 ## Second decision: hosting shape
