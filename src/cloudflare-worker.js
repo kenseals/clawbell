@@ -47,6 +47,37 @@ const bridgeBuckets = new Map();
 let bridgeInFlight = 0;
 let bridgeGlobalBucket = { start: Date.now(), count: 0 };
 
+export class RateLimiter {
+  constructor(state) {
+    this.state = state;
+  }
+
+  async fetch(request) {
+    let body;
+    try { body = await request.json(); } catch { return json({ ok: false, error: 'invalid_json' }, 400); }
+    const key = String(body.key || '').slice(0, 240);
+    const windowMs = Math.max(1000, Number(body.windowMs || 60000));
+    const max = Number(body.max || 0);
+    if (!key || !max || max < 1) return json({ ok: true });
+
+    const now = Date.now();
+    const storageKey = `bucket:${key}`;
+    const bucket = (await this.state.storage.get(storageKey)) || { start: now, count: 0 };
+    if (now - bucket.start > windowMs) {
+      bucket.start = now;
+      bucket.count = 0;
+    }
+    bucket.count += 1;
+    await this.state.storage.put(storageKey, bucket, { expirationTtl: Math.max(60, Math.ceil(windowMs / 1000) * 2) });
+    return json({
+      ok: bucket.count <= max,
+      count: bucket.count,
+      limit: max,
+      retryAfter: Math.max(1, Math.ceil((windowMs - (now - bucket.start)) / 1000))
+    });
+  }
+}
+
 function json(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -199,10 +230,32 @@ function checkBucket(map, key, windowMs, max) {
   return { ok: bucket.count <= max, retryAfter: Math.ceil((windowMs - (now - bucket.start)) / 1000) };
 }
 
-function checkRateLimit(request, env) {
-  const windowMs = Number(env.RATE_LIMIT_WINDOW_MS || 60000);
-  const max = Number(env.RATE_LIMIT_MAX || 12);
-  return checkBucket(rateBuckets, clientIp(request), windowMs, max);
+function rateLimitSettings(env) {
+  return {
+    mode: String(env.RATE_LIMIT_MODE || 'auto').toLowerCase(),
+    windowMs: Number(env.RATE_LIMIT_WINDOW_MS || 60000),
+    max: Number(env.RATE_LIMIT_MAX || 12)
+  };
+}
+
+async function checkRateLimit(request, env) {
+  const { mode, windowMs, max } = rateLimitSettings(env);
+  if (!max || max < 1) return { ok: true, mode };
+  const key = clientIp(request);
+  if (mode !== 'memory' && env.RATE_LIMITER) {
+    const id = env.RATE_LIMITER.idFromName('clawbell-public-chat');
+    const limiter = env.RATE_LIMITER.get(id);
+    const response = await limiter.fetch('https://clawbell.internal/rate-limit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ key, windowMs, max })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return { ok: true, mode: 'durable-failed-open' };
+    return { ...data, mode: 'durable' };
+  }
+
+  return { ...checkBucket(rateBuckets, key, windowMs, max), mode: 'memory' };
 }
 
 function bridgeLimits(env) {
@@ -306,7 +359,7 @@ async function askAgentPublicSafe(message, env, config, history = []) {
 }
 
 async function handleChat(request, env) {
-  const limit = checkRateLimit(request, env);
+  const limit = await checkRateLimit(request, env);
   if (!limit.ok) return json({ error: 'rate_limited', retryAfter: limit.retryAfter }, 429, { 'retry-after': String(limit.retryAfter) });
   let body;
   try { body = await request.json(); } catch { return json({ error: 'invalid_json' }, 400); }
@@ -391,6 +444,7 @@ async function handleWorkerRequest(request, env) {
       hasUrl: Boolean(bridgeUrl),
       bridgeHost,
       hasToken: Boolean(env.AGENT_BRIDGE_TOKEN || env.CLAWBELL_BRIDGE_TOKEN || env.SOREN_BRIDGE_TOKEN),
+      rateLimit: { ...rateLimitSettings(env), durable: Boolean(env.RATE_LIMITER) },
       maxConcurrent: bridgeLimits(env).maxConcurrent,
       inFlight: bridgeInFlight
     });

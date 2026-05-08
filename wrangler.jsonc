@@ -11,8 +11,25 @@
     "binding": "ASSETS",
     "run_worker_first": true
   },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RATE_LIMITER",
+        "class_name": "RateLimiter"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RateLimiter"]
+    }
+  ],
   "vars": {
     "ENABLE_AGENT_BRIDGE": "0",
-    "REQUIRE_ADMIN_AUTH": "1"
+    "REQUIRE_ADMIN_AUTH": "1",
+    "RATE_LIMIT_MODE": "auto",
+    "RATE_LIMIT_WINDOW_MS": "60000",
+    "RATE_LIMIT_MAX": "12"
   }
 }

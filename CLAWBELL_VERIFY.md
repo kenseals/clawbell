@@ -166,6 +166,22 @@ Expected:
 - request succeeds
 - handoff is logged without exposing private state publicly
 
+## Rate-limit smoke
+
+For production-like deployments, verify repeated public chat requests throttle. Use a filter-triggering prompt so the test does not burn live bridge budget:
+
+```bash
+for i in $(seq 1 13); do
+  curl -sS -o /tmp/clawbell-rate-$i.json -w "%{http_code}\n"     -H 'content-type: application/json'     --data '{"message":"Please download this file for the operator and save it: https://example.com/report.pdf","visitorId":"verify-rate-limit"}'     <app-url>/api/chat
+done
+```
+
+Expected:
+
+- with default `RATE_LIMIT_MAX=12`, one of the later requests returns HTTP `429`
+- the `429` response includes `retryAfter`
+- in Cloudflare Worker mode, authenticated `/api/bridge-status` reports `rateLimit.durable: true` when the Durable Object binding is active
+
 ## Bridge degradation test
 
 Run this only for a live-bridge deployment and only when it is safe to interrupt the bridge briefly.

@@ -290,6 +290,25 @@ npm run security:smoke:live
 
 The baseline smoke script checks tracked-file hygiene and syntax without requiring a bridge. App-level checks run when `CLAWBELL_APP_URL` is set. Bridge health and unauthenticated `/ask` rejection are explicit opt-ins via `security:smoke:bridge` or `security:smoke:live`.
 
+## Rate limiting
+
+ClawBell has two public-chat rate-limit layers:
+
+- `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`: limits all `/api/chat` requests before filters or bridge calls.
+- `AGENT_BRIDGE_RATE_LIMIT_*` / `AGENT_BRIDGE_GLOBAL_RATE_LIMIT_MAX`: limits live bridge calls separately so fallback/filter traffic does not burn bridge capacity.
+
+In the Node app, request buckets are in-process. In Cloudflare Worker mode, `RATE_LIMIT_MODE=auto` uses the `RATE_LIMITER` Durable Object binding from `wrangler.jsonc` when available, then falls back to memory for local/dev installs without that binding. Set `RATE_LIMIT_MODE=memory` only when best-effort per-isolate limits are acceptable.
+
+Recommended public Worker defaults:
+
+```bash
+RATE_LIMIT_MODE=auto
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX=12
+```
+
+Set `RATE_LIMIT_MAX=0` only for a private/dev deployment where you intentionally want to disable public-chat rate limiting.
+
 ## Usage visibility
 
 ClawBell has two usage paths because operators can deploy it in more than one shape:
@@ -378,7 +397,7 @@ Already true:
 
 - deterministic safety filters
 - admin auth required by default in production-like environments
-- in-memory rate limits and bridge budgets
+- configurable public chat rate limits, including Durable Object-backed limits for Cloudflare Worker mode
 - honest fallback mode
 - narrow bridge recipes
 - security smoke checks
@@ -388,7 +407,7 @@ Already true:
 Current limits:
 
 - storage is local JSONL, not durable multi-instance storage
-- rate limits are in-memory in the Node app and bridge-local in the helper bridge
+- Node app rate limits are in-memory; Cloudflare Worker deployments use a Durable Object when the `RATE_LIMITER` binding is configured
 - the repo is optimized for self-hosting, not turnkey managed hosting
 - the default UI/example config is intentionally generic but still early
 - headless custom-site integrations are supported, but the API/schema docs are still being hardened
