@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "clawbell-v0",
+  "main": "src/cloudflare-worker.js",
+  "compatibility_date": "2026-05-08",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "vars": {
+    "ENABLE_AGENT_BRIDGE": "0",
+    "REQUIRE_ADMIN_AUTH": "1"
+  }
+}

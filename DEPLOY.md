@@ -1,11 +1,6 @@
 # ClawBell deployment notes
 
-ClawBell can run in two broad shapes:
-
-1. **Single-service Node app**: the current `server.mjs` serves UI + API from one host.
-2. **Split edge/site + runtime**: a public site or Worker owns the domain and calls a narrow bridge/runtime.
-
-A split-site deployment can use a Cloudflare Worker plus Cloudflare Tunnel while the reusable product repo keeps the Node app as the simplest self-hostable package.
+ClawBell v0 is self-hosted. The default recommendation is Cloudflare-native when the operator already uses Cloudflare, with the Node server kept as a portable fallback for traditional app hosts.
 
 ## Non-negotiable production boundary
 
@@ -23,18 +18,67 @@ public browser
 
 The bridge should return text only. It should not expose files, private memory, tools, logs, credentials, or admin actions.
 
-## Option 1: single-service Node host
+## Option 1: Cloudflare Worker + Assets
 
-Best fit for this repo as packaged today.
+Best fit when the operator wants to avoid another app host.
 
-Typical hosts:
+This repo includes:
 
-- Fly.io
-- Render
-- Railway
-- a small VPS
+- `wrangler.jsonc`: Cloudflare Worker config
+- `src/cloudflare-worker.js`: Worker API runtime
+- `public/`: static ClawBell UI assets served by the Worker Assets binding
 
-Required posture:
+Run locally:
+
+```bash
+npm run cloudflare:dev
+```
+
+Deploy:
+
+```bash
+npm run cloudflare:deploy
+```
+
+Recommended production vars/secrets:
+
+```bash
+REQUIRE_ADMIN_AUTH=1
+ADMIN_TOKEN=<long-random-token>
+CLAWBELL_CONFIG_JSON=<operator-public-config-json>
+```
+
+Optional trusted headless custom-site config:
+
+```bash
+CLAWBELL_SITE_CONFIG_TOKEN=<long-random-token>
+```
+
+Optional live bridge:
+
+```bash
+ENABLE_AGENT_BRIDGE=1
+AGENT_BRIDGE_URL=<https-bridge-url>
+AGENT_BRIDGE_TOKEN=<long-random-token>
+```
+
+Alias vars such as `ENABLE_CLAWBELL_BRIDGE`, `CLAWBELL_BRIDGE_URL`, and `CLAWBELL_BRIDGE_TOKEN` are also supported.
+
+Worker-mode limitations in this first slice:
+
+- conversation/handoff persistence logs to Worker logs unless a storage binding is added later
+- admin config writes return `501`; update `CLAWBELL_CONFIG_JSON` in Worker vars/secrets instead
+- in-memory rate limits are best-effort per Worker isolate
+
+## Option 2: single-service Node host
+
+Use this when you want a traditional Node server on Fly, Render, Railway, or a small VPS.
+
+```bash
+npm start
+```
+
+Required production posture:
 
 ```bash
 REQUIRE_ADMIN_AUTH=1
@@ -51,33 +95,32 @@ AGENT_BRIDGE_TOKEN=<long-random-token>
 
 If no live bridge is configured, ClawBell should run in honest fallback mode.
 
-## Option 2: split edge/site + runtime
+## Option 3: split edge/site + runtime
 
-Use this when the operator wants a static/edge public domain and a separate narrow bridge/runtime.
+Use this when the operator's public website is hosted separately from the ClawBell API or bridge/runtime.
 
 Example shape:
 
 ```text
-Cloudflare Worker or static site
+operator website
   -> same-origin /api/chat
-  -> secret-backed bridge fetch
-  -> Cloudflare Tunnel / Tailscale Funnel / custom HTTPS adapter
-  -> local bridge
+  -> operator-owned ClawBell /api/chat
+  -> authenticated bridge
+  -> public-safe agent session/runtime
 ```
 
-This shape can reduce vendor sprawl when the operator already uses Cloudflare for DNS, Workers, secrets, and tunnels.
+For headless custom-site mode, keep operator-specific config in the site repo and send it server-to-server with `x-clawbell-site-config-token`. Do not expose the token to browser JavaScript.
 
 ## Minimum production auth/safety
 
 Before public launch:
 
-- `ADMIN_TOKEN` protects admin/config/conversation endpoints when the Node app is deployed.
+- `ADMIN_TOKEN` protects admin/config/conversation endpoints.
 - public chat has rate limiting.
 - bridge requests require a long random bearer token.
 - optional Cloudflare Access service-token auth protects the bridge hostname before tunnel forwarding.
-- raw logs and JSONL data are never public.
+- raw logs and private runtime data are never public.
 - no admin route is linked from public chat.
-- persistent storage location is configured intentionally.
 - public-safe prompt/config is reviewed.
 - fallback mode is honest when the bridge is unavailable.
 

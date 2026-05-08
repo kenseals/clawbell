@@ -43,6 +43,25 @@ npm run security:smoke:live
 
 Only run the live version when the local bridge is expected to be connected; it sends one smoke prompt through the public-safe bridge.
 
+## Cloudflare Worker local smoke
+
+When validating the Cloudflare-native path:
+
+```bash
+npm run cloudflare:dev
+curl -sS http://127.0.0.1:8787/health
+curl -sS http://127.0.0.1:8787/api/config
+curl -sS -H 'content-type: application/json' \
+  --data '{"message":"What is this project for?","history":[],"visitorId":"verify-normal"}' \
+  http://127.0.0.1:8787/api/chat
+```
+
+Expected:
+
+- health returns `{"ok":true,"edge":"cloudflare-worker"}`
+- config returns display-safe owner/starter config only
+- chat returns ClawBell-shaped `{ reply, noteIntent, source }`
+
 ## App health
 
 ```bash
