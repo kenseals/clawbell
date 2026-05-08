@@ -62,6 +62,19 @@ Expected:
 - config returns display-safe owner/starter config only
 - chat returns ClawBell-shaped `{ reply, noteIntent, source }`
 
+Optional queue-focused Worker smoke:
+
+```bash
+node scripts/cloudflare-worker-queue-smoke.mjs
+```
+
+Expected:
+
+- one queued safe request can still complete through the live bridge while `maxConcurrent` stays respected
+- queue-full requests fall back honestly with `bridgeOutcome: "queue_full"`
+- queue-timeout requests fall back honestly with `bridgeOutcome: "queue_timeout"`
+- safety/internal/action/operator filters never enter the queue
+
 ## App health
 
 ```bash
@@ -196,6 +209,27 @@ Expected:
 - the app does not pretend the live bridge worked
 
 Restore the bridge and confirm recovery.
+
+## Worker bridge queue behavior
+
+Run this when Worker live bridge mode is enabled and queue settings are in scope.
+
+Suggested settings for a quick manual check:
+
+```bash
+AGENT_BRIDGE_MAX_CONCURRENT=1
+AGENT_BRIDGE_QUEUE_ENABLED=1
+AGENT_BRIDGE_QUEUE_MAX_DEPTH=1
+AGENT_BRIDGE_QUEUE_TIMEOUT_MS=5000
+AGENT_BRIDGE_QUEUE_POLL_MS=250
+```
+
+Expected:
+
+- two near-simultaneous safe prompts do not immediately fall back solely because one live bridge call is already in flight
+- successful queued replies report `source: "agent-bridge"` plus queue metadata such as `bridgeOutcome: "queued"` and `queueWaitMs`
+- if the queue is already full, the reply stays in limited mode and honestly says the live public agent is busy
+- authenticated `/api/bridge-status` shows current `inFlight` plus queue settings and current queue depth
 
 ## UI smoke
 

@@ -65,15 +65,22 @@ Optional live bridge:
 ENABLE_AGENT_BRIDGE=1
 AGENT_BRIDGE_URL=<https-bridge-url>
 AGENT_BRIDGE_TOKEN=<long-random-token>
+AGENT_BRIDGE_QUEUE_ENABLED=1
+AGENT_BRIDGE_QUEUE_MAX_DEPTH=3
+AGENT_BRIDGE_QUEUE_TIMEOUT_MS=20000
+AGENT_BRIDGE_QUEUE_POLL_MS=250
 ```
 
-Alias vars such as `ENABLE_CLAWBELL_BRIDGE`, `CLAWBELL_BRIDGE_URL`, and `CLAWBELL_BRIDGE_TOKEN` are also supported.
+Alias vars such as `ENABLE_CLAWBELL_BRIDGE`, `CLAWBELL_BRIDGE_URL`, `CLAWBELL_BRIDGE_TOKEN`, and the matching `CLAWBELL_BRIDGE_QUEUE_*` names are also supported.
+
+Worker-mode queue defaults are intentionally small and cost-safe: queueing is enabled by default when the Worker bridge is enabled, max depth defaults to `3`, timeout defaults to `20000`, and poll interval defaults to `250`. Deterministic safety, action, internal-info, and operator-identity filters still short-circuit before a request can enter the queue.
 
 Worker-mode limitations in this first slice:
 
 - conversation/handoff persistence logs to Worker logs unless a storage binding is added later
 - admin config writes return `501`; update `CLAWBELL_CONFIG_JSON` in Worker vars/secrets instead
 - public-chat rate limits are durable only when the `RATE_LIMITER` Durable Object binding is deployed; bridge-specific budgets remain in-memory in the Worker and bridge-local in the helper bridge
+- live-bridge queueing is best-effort per Worker isolate; it preserves the per-isolate `maxConcurrent` cap but is not a globally durable queue
 
 ## Option 2: single-service Node host
 
@@ -99,6 +106,8 @@ AGENT_BRIDGE_TOKEN=<long-random-token>
 ```
 
 If no live bridge is configured, ClawBell should run in honest fallback mode.
+
+The bounded bridge queue is a Cloudflare Worker behavior. Node server behavior is unchanged.
 
 ## Option 3: split edge/site + runtime
 

@@ -29,7 +29,7 @@
   "scripts": {
     "start": "node server.mjs",
     "digest": "node scripts/operator-digest.mjs",
-    "check:syntax": "node --check server.mjs && node --check src/cloudflare-worker.js && node --check scripts/operator-digest.mjs && node --check scripts/local-openclaw-bridge.mjs",
+    "check:syntax": "node --check server.mjs && node --check src/cloudflare-worker.js && node --check scripts/operator-digest.mjs && node --check scripts/local-openclaw-bridge.mjs && node --check scripts/cloudflare-worker-queue-smoke.mjs",
     "security:smoke": "node scripts/security-smoke.mjs",
     "security:smoke:bridge": "node scripts/security-smoke.mjs --bridge",
     "security:smoke:live": "node scripts/security-smoke.mjs --live-bridge",

@@ -59,6 +59,11 @@ run('syntax check', () => {
   pass('syntax check', 'npm run check:syntax passed');
 });
 
+run('cloudflare worker bridge queue smoke', () => {
+  execFileSync('node', ['scripts/cloudflare-worker-queue-smoke.mjs'], { cwd: root, stdio: 'pipe' });
+  pass('cloudflare worker bridge queue smoke', 'queued success, queue_full, queue_timeout, and filter short-circuit passed');
+});
+
 if (bridge) {
   run('local bridge health', () => {
     const output = curlJson(`${bridgeUrl}/health`, { timeout: 5 });

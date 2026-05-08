@@ -223,6 +223,8 @@ The Cloudflare Worker serves the static ClawBell UI from `public/` and the same 
 
 Configure operator-specific public policy with `CLAWBELL_CONFIG_JSON`. Configure live bridge secrets with `AGENT_BRIDGE_URL` / `AGENT_BRIDGE_TOKEN` or the `CLAWBELL_BRIDGE_*` aliases. Keep `CLAWBELL_SITE_CONFIG_TOKEN` server-side for trusted headless custom-site integrations.
 
+When Worker live bridge mode is enabled, ClawBell now uses a small bounded wait queue by default instead of immediately falling back as soon as the bridge is busy. The defaults are intentionally cost-safe per Worker isolate: queue enabled, depth `3`, timeout `20000ms`, poll interval `250ms`. Deterministic safety/action/internal/operator filters still short-circuit before any queue or bridge wait.
+
 ### Option 2: single-service Node host
 
 Use this when you want a traditional Node server on Fly, Render, Railway, or a small VPS.
