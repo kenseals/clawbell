@@ -7,6 +7,7 @@ Product posture:
 - reusable product repo, not a personal-site repo
 - This repo is the generic reusable product package
 - current status is v0 and self-host oriented
+- this is an app/template repo, not a published npm library or managed SaaS
 - docs should stay honest about limits and avoid promising hosted-product capabilities that do not exist yet
 
 Canonical repo:
@@ -36,11 +37,10 @@ Code/runtime files:
 - package.json: npm scripts including syntax verification
 
 Deploy guidance:
-- simplest current deployment is a single Node host such as Render, Fly, or Railway
-- a launch architecture may split the public domain/static surface and the Node/API service:
-  - an edge/static host can serve the public site
-  - Render can continue hosting the ClawBell v0 Node/API service
-- that split is operational guidance, not a claim that this repo is already packaged as a Pages-native app
+- supported self-hosting shapes include the Node app and Cloudflare Worker + Assets path
+- a custom public site can call a separately deployed ClawBell instance through headless `/api/chat`
+- Cloudflare Worker service bindings are a good same-account path for a custom site calling its ClawBell instance
+- this is self-hosted infrastructure today, not managed hosting or one-click SaaS
 
 Bridge guidance:
 - fallback-only mode is valid when no live bridge is ready
