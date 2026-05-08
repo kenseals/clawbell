@@ -65,15 +65,19 @@ Optional live bridge:
 ENABLE_AGENT_BRIDGE=1
 AGENT_BRIDGE_URL=<https-bridge-url>
 AGENT_BRIDGE_TOKEN=<long-random-token>
+AGENT_BRIDGE_RATE_LIMIT_WINDOW_MS=3600000
+AGENT_BRIDGE_RATE_LIMIT_MAX=20
+AGENT_BRIDGE_GLOBAL_RATE_LIMIT_MAX=150
+AGENT_BRIDGE_MAX_CONCURRENT=1
 AGENT_BRIDGE_QUEUE_ENABLED=1
 AGENT_BRIDGE_QUEUE_MAX_DEPTH=3
 AGENT_BRIDGE_QUEUE_TIMEOUT_MS=20000
 AGENT_BRIDGE_QUEUE_POLL_MS=250
 ```
 
-Alias vars such as `ENABLE_CLAWBELL_BRIDGE`, `CLAWBELL_BRIDGE_URL`, `CLAWBELL_BRIDGE_TOKEN`, and the matching `CLAWBELL_BRIDGE_QUEUE_*` names are also supported.
+Alias vars such as `ENABLE_CLAWBELL_BRIDGE`, `CLAWBELL_BRIDGE_URL`, `CLAWBELL_BRIDGE_TOKEN`, and the matching `CLAWBELL_BRIDGE_*` names are also supported.
 
-Worker-mode queue defaults are intentionally small and cost-safe: queueing is enabled by default when the Worker bridge is enabled, max depth defaults to `3`, timeout defaults to `20000`, and poll interval defaults to `250`. Deterministic safety, action, internal-info, and operator-identity filters still short-circuit before a request can enter the queue.
+Worker-mode live-bridge defaults are intentionally bounded but usable for demos: visitor live-answer limit `20/hour`, site-wide live-answer limit `150/hour`, max concurrency `1`, queue enabled, queue depth `3`, timeout `20000ms`, and poll interval `250ms`. Deterministic safety, action, internal-info, and operator-identity filters still short-circuit before a request can enter the queue or live bridge.
 
 Worker-mode limitations in this first slice:
 

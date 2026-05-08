@@ -223,7 +223,7 @@ The Cloudflare Worker serves the static ClawBell UI from `public/` and the same 
 
 Configure operator-specific public policy with `CLAWBELL_CONFIG_JSON`. Configure live bridge secrets with `AGENT_BRIDGE_URL` / `AGENT_BRIDGE_TOKEN` or the `CLAWBELL_BRIDGE_*` aliases. Keep `CLAWBELL_SITE_CONFIG_TOKEN` server-side for trusted headless custom-site integrations.
 
-When Worker live bridge mode is enabled, ClawBell now uses a small bounded wait queue by default instead of immediately falling back as soon as the bridge is busy. The defaults are intentionally cost-safe per Worker isolate: queue enabled, depth `3`, timeout `20000ms`, poll interval `250ms`. Deterministic safety/action/internal/operator filters still short-circuit before any queue or bridge wait.
+When Worker live bridge mode is enabled, ClawBell uses bounded live-answer limits plus a short wait queue instead of immediately falling back as soon as the bridge is busy. The defaults are intentionally cost-safe but usable for demos: visitor live-answer limit `20/hour`, site-wide live-answer limit `150/hour`, max concurrency `1`, queue enabled, depth `3`, timeout `20000ms`, poll interval `250ms`. Deterministic safety/action/internal/operator filters still short-circuit before any queue or bridge wait.
 
 ### Option 2: single-service Node host
 
@@ -307,6 +307,14 @@ Recommended public Worker defaults:
 RATE_LIMIT_MODE=auto
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX=12
+AGENT_BRIDGE_RATE_LIMIT_WINDOW_MS=3600000
+AGENT_BRIDGE_RATE_LIMIT_MAX=20
+AGENT_BRIDGE_GLOBAL_RATE_LIMIT_MAX=150
+AGENT_BRIDGE_MAX_CONCURRENT=1
+AGENT_BRIDGE_QUEUE_ENABLED=1
+AGENT_BRIDGE_QUEUE_MAX_DEPTH=3
+AGENT_BRIDGE_QUEUE_TIMEOUT_MS=20000
+AGENT_BRIDGE_QUEUE_POLL_MS=250
 ```
 
 Set `RATE_LIMIT_MAX=0` only for a private/dev deployment where you intentionally want to disable public-chat rate limiting.
