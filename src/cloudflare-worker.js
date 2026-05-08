@@ -45,6 +45,7 @@ const DEFAULT_CONFIG = {
 const rateBuckets = new Map();
 const bridgeBuckets = new Map();
 let bridgeInFlight = 0;
+let bridgeQueueDepth = 0;
 let bridgeGlobalBucket = { start: Date.now(), count: 0 };
 
 export class RateLimiter {
@@ -87,6 +88,10 @@ function json(body, status = 200, extraHeaders = {}) {
 
 function envBool(value) {
   return value === true || value === '1' || value === 'true';
+}
+
+function envHas(value) {
+  return value !== undefined && value !== null && value !== '';
 }
 
 function cloneJson(value) {
@@ -267,9 +272,18 @@ function bridgeLimits(env) {
   };
 }
 
+function bridgeQueueSettings(env) {
+  const configuredEnabled = env.AGENT_BRIDGE_QUEUE_ENABLED ?? env.CLAWBELL_BRIDGE_QUEUE_ENABLED ?? env.SOREN_BRIDGE_QUEUE_ENABLED;
+  return {
+    enabled: envHas(configuredEnabled) ? envBool(configuredEnabled) : true,
+    maxDepth: Math.max(0, Number(env.AGENT_BRIDGE_QUEUE_MAX_DEPTH || env.CLAWBELL_BRIDGE_QUEUE_MAX_DEPTH || env.SOREN_BRIDGE_QUEUE_MAX_DEPTH || 3)),
+    timeoutMs: Math.max(1, Number(env.AGENT_BRIDGE_QUEUE_TIMEOUT_MS || env.CLAWBELL_BRIDGE_QUEUE_TIMEOUT_MS || env.SOREN_BRIDGE_QUEUE_TIMEOUT_MS || 20000)),
+    pollMs: Math.max(25, Number(env.AGENT_BRIDGE_QUEUE_POLL_MS || env.CLAWBELL_BRIDGE_QUEUE_POLL_MS || env.SOREN_BRIDGE_QUEUE_POLL_MS || 250))
+  };
+}
+
 function checkBridgeBudget(request, env, visitorId) {
   const limits = bridgeLimits(env);
-  if (limits.maxConcurrent > 0 && bridgeInFlight >= limits.maxConcurrent) return { ok: false, reason: 'bridge_busy', retryAfter: 60 };
   const now = Date.now();
   if (now - bridgeGlobalBucket.start > limits.windowMs) bridgeGlobalBucket = { start: now, count: 0 };
   const key = `${clientIp(request)}:${visitorId || 'anonymous'}`;
@@ -280,6 +294,38 @@ function checkBridgeBudget(request, env, visitorId) {
     return { ok: false, reason: 'bridge_global_limited', retryAfter: Math.ceil((limits.windowMs - (now - bridgeGlobalBucket.start)) / 1000) };
   }
   return { ok: true };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function acquireBridgeSlot(env) {
+  const limits = bridgeLimits(env);
+  if (limits.maxConcurrent < 1) return { ok: true, queued: false, waitMs: 0 };
+  if (bridgeInFlight < limits.maxConcurrent) {
+    bridgeInFlight += 1;
+    return { ok: true, queued: false, waitMs: 0 };
+  }
+
+  const queue = bridgeQueueSettings(env);
+  if (!queue.enabled) return { ok: false, reason: 'bridge_busy', retryAfter: 60, queued: false, waitMs: 0 };
+  if (bridgeQueueDepth >= queue.maxDepth) return { ok: false, reason: 'queue_full', retryAfter: Math.max(1, Math.ceil(queue.pollMs / 1000)), queued: false, waitMs: 0 };
+
+  bridgeQueueDepth += 1;
+  const started = Date.now();
+  try {
+    while (Date.now() - started < queue.timeoutMs) {
+      await sleep(queue.pollMs);
+      if (bridgeInFlight < limits.maxConcurrent) {
+        bridgeInFlight += 1;
+        return { ok: true, queued: true, waitMs: Date.now() - started };
+      }
+    }
+    return { ok: false, reason: 'queue_timeout', retryAfter: 1, queued: true, waitMs: Date.now() - started };
+  } finally {
+    bridgeQueueDepth = Math.max(0, bridgeQueueDepth - 1);
+  }
 }
 
 function publicHistoryText(history, env) {
@@ -315,6 +361,17 @@ function limitedModeReply(message, config = null, reason = 'bridge unavailable')
   const reply = fallbackReply(message, config);
   if (reply.includes('limited fallback mode')) return reply;
   return `${reply}\n\nSmall caveat: I’m answering from limited fallback mode right now because the live agent bridge is ${reason}.`;
+}
+
+function bridgeBusyFallbackReply(message, config, outcome) {
+  const ownerName = config?.owner?.name || 'the operator';
+  const intro = outcome === 'queue_full'
+    ? 'The live public agent is busy with other visitors right now, and the short waiting line is already full.'
+    : outcome === 'queue_timeout'
+      ? 'The live public agent stayed busy for too long, so I switched back to limited mode instead of hanging.'
+      : 'The live public agent is busy with other visitors right now.';
+  const guidance = `You can try again shortly, or leave a note here for ${ownerName} with who you are, what you want them to know, whether you want a reply, and the best way to reach you.`;
+  return `${fallbackReply(message, config)}\n\n${intro} ${guidance}`;
 }
 
 function summarizeForOwner(messages, latest, reply, noteIntent) {
@@ -390,14 +447,36 @@ async function handleChat(request, env) {
   if (bridgeEnabled) {
     const bridgeBudget = checkBridgeBudget(request, env, visitorId);
     if (!bridgeBudget.ok) return json({ reply: limitedModeReply(message, config, bridgeBudget.reason), noteIntent, source: 'fallback', throttled: true, retryAfter: bridgeBudget.retryAfter });
-    bridgeInFlight += 1;
+    const slot = await acquireBridgeSlot(env);
+    if (!slot.ok) {
+      console.log(JSON.stringify({ event: 'chat', source: 'fallback', bridgeOutcome: slot.reason, noteIntent, visitorId, queueDepth: bridgeQueueDepth }));
+      return json({
+        reply: bridgeBusyFallbackReply(message, config, slot.reason),
+        noteIntent,
+        source: 'fallback',
+        degraded: true,
+        retryAfter: slot.retryAfter,
+        bridgeOutcome: slot.reason,
+        queued: slot.queued,
+        queueWaitMs: slot.waitMs
+      });
+    }
     try {
       const reply = await askAgentPublicSafe(message, env, config, history, visitorId);
-      console.log(JSON.stringify({ event: 'chat', source: 'agent-bridge', noteIntent, visitorId, summary: summarizeForOwner(history, message, reply, noteIntent) }));
-      return json({ reply, noteIntent, source: 'agent-bridge' });
+      console.log(JSON.stringify({
+        event: 'chat',
+        source: 'agent-bridge',
+        bridgeOutcome: slot.queued ? 'queued' : 'live',
+        noteIntent,
+        queued: slot.queued,
+        queueWaitMs: slot.waitMs,
+        visitorId,
+        summary: summarizeForOwner(history, message, reply, noteIntent)
+      }));
+      return json({ reply, noteIntent, source: 'agent-bridge', bridgeOutcome: slot.queued ? 'queued' : 'live', queued: slot.queued, queueWaitMs: slot.waitMs });
     } catch (error) {
       console.error('[agent-bridge]', String(error?.message || error));
-      return json({ reply: limitedModeReply(message, config, 'temporarily unavailable'), noteIntent, source: 'fallback', degraded: true });
+      return json({ reply: limitedModeReply(message, config, 'temporarily unavailable'), noteIntent, source: 'fallback', degraded: true, bridgeOutcome: 'bridge_error', queued: slot.queued, queueWaitMs: slot.waitMs });
     } finally {
       bridgeInFlight = Math.max(0, bridgeInFlight - 1);
     }
@@ -451,7 +530,11 @@ async function handleWorkerRequest(request, env) {
       hasToken: Boolean(env.AGENT_BRIDGE_TOKEN || env.CLAWBELL_BRIDGE_TOKEN || env.SOREN_BRIDGE_TOKEN),
       rateLimit: { ...rateLimitSettings(env), durable: Boolean(env.RATE_LIMITER) },
       maxConcurrent: bridgeLimits(env).maxConcurrent,
-      inFlight: bridgeInFlight
+      inFlight: bridgeInFlight,
+      queue: {
+        ...bridgeQueueSettings(env),
+        depth: bridgeQueueDepth
+      }
     });
   }
   if (url.pathname === '/api/chat' && request.method === 'POST') return handleChat(request, env);
@@ -461,3 +544,11 @@ async function handleWorkerRequest(request, env) {
 }
 
 export default { fetch: handleWorkerRequest };
+
+export function resetWorkerStateForTests() {
+  rateBuckets.clear();
+  bridgeBuckets.clear();
+  bridgeInFlight = 0;
+  bridgeQueueDepth = 0;
+  bridgeGlobalBucket = { start: Date.now(), count: 0 };
+}
