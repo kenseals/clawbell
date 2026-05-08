@@ -104,6 +104,7 @@ function isInternalInfoRequest(message) {
 }
 
 function isActionTakingRequest(message) {
+  if (/\b(how|what|can you explain|should i|should someone|what should)\b.{0,80}\b(send|contact|reach|leave|write)\b/i.test(message)) return false;
   return /\b(download|save|upload|install|run|execute|email|send|subscribe|unsubscribe|post|publish|delete|remove|commit|push|merge|deploy|buy|purchase|book|schedule|call|text|message|dm|follow|like|share)\b/i.test(message)
     && /\b(file|link|url|command|server|result|note|newsletter|email|workspace|logs?|account|ken|operator|behalf|for me|for ken|on my behalf|right now)\b/i.test(message);
 }
