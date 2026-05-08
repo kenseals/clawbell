@@ -33,27 +33,31 @@ Choose how ClawBell should appear to visitors:
 
 Choose the simplest truthful deployment shape for the operator.
 
-### Option 1: single-service Node host
+### Option 1: Cloudflare Worker + Assets
 
-Use when the operator wants the fastest path and is comfortable hosting the current Node app directly.
+Use when the operator already uses Cloudflare and wants to avoid another app host.
+
+```bash
+npm run cloudflare:dev
+npm run cloudflare:deploy
+```
+
+Worker secrets/vars hold config and bridge credentials. Cloudflare Tunnel can reach the local bridge.
+
+### Option 2: single-service Node host
+
+Use when the operator wants a traditional Node app host.
 
 Typical hosts:
 
-- Render
 - Fly
+- Render
 - Railway
+- a small VPS
 
-### Option 2: split public site and API/service
+### Option 3: split public site and API/service
 
-Use when the operator wants a static/edge public front domain and a separate narrow API/runtime.
-
-Example split-site launch:
-
-- Cloudflare Worker hosts the public site and same-origin `/api/chat`.
-- Worker secrets hold bridge credentials.
-- Cloudflare Tunnel reaches the local bridge.
-
-Treat this as an example deployment shape, not a requirement for all operators.
+Use when the operator wants a custom public site and a separate ClawBell API/runtime. The custom site should proxy to its operator-owned ClawBell instance server-to-server.
 
 ## Third decision: bridge mode
 

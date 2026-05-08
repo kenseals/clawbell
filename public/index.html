@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ClawBell Demo</title>
+  <meta name="description" content="ClawBell is a public-safe website chat for operator-owned agents." />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <button id="widgetLauncher" class="widget-launcher" type="button" aria-controls="chatRoot" aria-expanded="false">
+    <span class="launcher-avatar" aria-hidden="true">🛎️</span>
+    <span>Talk to the agent</span>
+  </button>
+  <main id="chatRoot" class="chat" aria-label="ClawBell public-safe website chat demo">
+    <nav class="site-top" aria-label="ClawBell links">
+      <a class="wordmark" href="/">ClawBell</a>
+      <div class="site-links">
+        <a href="https://github.com/kenseals/clawbell">GitHub</a>
+      </div>
+    </nav>
+
+    <header class="topbar">
+      <div class="identity">
+        <div class="avatar" aria-hidden="true">🛎️</div>
+        <div>
+          <strong id="agentName">ClawBell</strong>
+          <span id="agentSubtitle">Public-safe website agent</span>
+        </div>
+      </div>
+      <span class="badge">public-safe</span>
+    </header>
+
+    <section id="messages" class="messages" aria-live="polite">
+      <section id="siteIntro" class="site-card" aria-label="ClawBell introduction">
+        <span class="eyebrow">Public chat · narrow bridge · safe handoff</span>
+        <h1>ClawBell</h1>
+        <p class="lede">Give visitors a way to talk to a scoped public version of your agent without exposing private tools, memory, credentials, or admin access.</p>
+        <div class="bio-grid" aria-label="ClawBell capabilities">
+          <p><span>Hosted UI</span> Run ClawBell as the public page for your website chat.</p>
+          <p><span>Widget</span> Embed it behind a button or modal on an existing site.</p>
+          <p><span>Headless</span> Keep your own UI and call the public-safe chat API.</p>
+        </div>
+      </section>
+      <div class="spacer" aria-hidden="true"></div>
+      <article class="bubble bot intro-bubble">
+        <strong id="welcomeTitle">Talk to the public agent.</strong>
+        <p id="welcomeMessage">Ask about approved public topics, how ClawBell works, or leave context for the operator to review.</p>
+        <div class="quick" id="starterPrompts"></div>
+      </article>
+    </section>
+
+    <form id="composer" class="composer" autocomplete="off">
+      <label class="sr-only" for="prompt">Message the public agent</label>
+      <textarea id="prompt" rows="1" placeholder="Ask a public-safe question…" required></textarea>
+      <button id="send" type="submit">Send</button>
+    </form>
+
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>

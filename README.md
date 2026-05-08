@@ -193,19 +193,33 @@ See [INTEGRATION_MODES.md](INTEGRATION_MODES.md) for examples, request/response 
 
 ## Deployment patterns
 
-ClawBell v0 supports two practical hosting shapes.
+ClawBell v0 supports two practical self-hosting shapes.
 
-### Option 1: single-service Node host
+### Option 1: Cloudflare Worker + Assets
 
-Best fit for this repo as packaged today.
+Best fit when you already use Cloudflare and do not want another app host.
 
-Deploy the Node app to a host like Fly, Render, Railway, or a small VPS. Set env vars on the host.
+```bash
+npm run cloudflare:dev
+npm run cloudflare:deploy
+```
 
-Use this when you want the simplest self-hosted path.
+The Cloudflare Worker serves the static ClawBell UI from `public/` and the same API contract from `src/cloudflare-worker.js`:
 
-### Option 2: split edge/site + runtime
+- `GET /health`
+- `GET /api/config`
+- `POST /api/chat`
+- `POST /api/handoff`
 
-Use this when your public website is hosted separately from the bridge/runtime.
+Configure operator-specific public policy with `CLAWBELL_CONFIG_JSON`. Configure live bridge secrets with `AGENT_BRIDGE_URL` / `AGENT_BRIDGE_TOKEN` or the `CLAWBELL_BRIDGE_*` aliases. Keep `CLAWBELL_SITE_CONFIG_TOKEN` server-side for trusted headless custom-site integrations.
+
+### Option 2: single-service Node host
+
+Use this when you want a traditional Node server on Fly, Render, Railway, or a small VPS.
+
+### Option 3: split edge/site + runtime
+
+Use this when your public website is hosted separately from the ClawBell API or bridge/runtime.
 
 Example:
 
