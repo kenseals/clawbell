@@ -103,6 +103,15 @@ function isInternalInfoRequest(message) {
   return /(system prompt|developer instruction|internal instruction|hidden instruction|prompt injection|private memory|memory file|workspace|file path|list files|shell command|run command|execute command|tool output|credentials?|secret|api key|token|password|env var|environment variable|source code|configuration|config file|openclaw status|session history|transcript)/i.test(message);
 }
 
+function isActionTakingRequest(message) {
+  return /\b(download|save|upload|install|run|execute|email|send|subscribe|unsubscribe|post|publish|delete|remove|commit|push|merge|deploy|buy|purchase|book|schedule|call|text|message|dm|follow|like|share)\b/i.test(message)
+    && /\b(file|link|url|command|server|result|note|newsletter|email|workspace|logs?|account|ken|operator|behalf|for me|for ken|on my behalf|right now)\b/i.test(message);
+}
+
+function actionRefusalReply(ownerName = 'the operator') {
+  return `I can’t download files, run commands, send messages, change accounts, or take external actions from this public chat. If you want ${ownerName} to consider something, leave the context here with who you are, what you want them to know, whether you want a reply, and the best way to reach you.`;
+}
+
 function sensitivePersonalInfoReply() {
   return 'I can talk about approved public topics, but I can’t share personal contact info, address/location details, family details, payment or financial information, private memory, credentials, or anything from private conversations.';
 }
@@ -455,6 +464,11 @@ async function handleChat(req, res) {
     const reply = internalInfoReply();
     await writeJsonl('conversations.jsonl', { ts: new Date().toISOString(), visitorId, message, reply, noteIntent, source: 'internal-info-filter', summary: summarizeForOwner(history, message, reply, noteIntent) });
     return json(res, 200, { reply, noteIntent, source: 'internal-info-filter' });
+  }
+  if (isActionTakingRequest(message)) {
+    const reply = actionRefusalReply(config.owner?.name || 'the operator');
+    await writeJsonl('conversations.jsonl', { ts: new Date().toISOString(), visitorId, message, reply, noteIntent, source: 'action-filter', summary: summarizeForOwner(history, message, reply, noteIntent) });
+    return json(res, 200, { reply, noteIntent, source: 'action-filter' });
   }
   if (agentBridgeEnabled) {
     const bridgeBudget = checkBridgeBudget(req, visitorId);
