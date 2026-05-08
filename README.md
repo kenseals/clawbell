@@ -9,15 +9,16 @@ Think: “Ask my agent about my public work” plus “leave a useful note for m
 
 ## Status: early public v0
 
-ClawBell is ready for builders to inspect, clone, and dogfood as a self-hosted v0. It is not a polished managed platform yet.
+ClawBell is ready for builders to inspect, clone, and dogfood as a self-hosted v0. It is not a polished managed platform or npm library yet.
 
-Use it today if you are comfortable running a small Node app or bridge, setting your own secrets, and reading the deployment docs. Treat it as a narrow public-safe agent front door, not a turnkey SaaS product.
+Use it today if you are comfortable deploying a small Node app or Cloudflare Worker, setting your own secrets, and reading the deployment docs. Treat it as a narrow public-safe agent front door, not a turnkey SaaS product.
 
-The first real dogfood deployment is Ken Seals' personal site, `kenseals.me`. That deployment currently uses the ClawBell bridge pattern plus a custom Cloudflare Worker, so it proves the product direction while also exposing the next packaging gap: custom sites should consume ClawBell through a cleaner shared integration path.
+The first real dogfood deployment is Ken Seals' personal site, `kenseals.me`. That site uses ClawBell as a separate deployed service through Cloudflare Worker service binding, which is the intended product boundary: your site can be a client of your ClawBell instance without copying private agent/runtime code into the site.
 
 Current public posture:
 
 - **Good for:** dogfooding, self-hosted experiments, public-safe personal/product site chat, builder feedback.
+- **Install shape:** clone this repo and deploy your own ClawBell instance. The package is intentionally marked `private` to prevent accidental npm publishing while the product is v0/self-hosted.
 - **Not yet:** managed hosting, one-click install, durable multi-instance storage, exact model-cost accounting, or broad internet-scale abuse resistance.
 - **Safety model:** narrow bridge, deterministic filters, admin auth, rate limits, usage visibility, and honest fallback.
 
@@ -179,6 +180,15 @@ Deliver:
 ```
 
 Once this repo is public, agents can start from [`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md) for the detailed setup path.
+
+## How to consume this repo
+
+For now, ClawBell is an app/template repo, not an npm package API:
+
+- **Clone/self-host** when you want your own ClawBell UI/API deployment.
+- **Use the Cloudflare Worker path** when you want an edge-hosted ClawBell instance.
+- **Use headless mode** when your website owns the UI and calls your deployed ClawBell instance.
+- **Do not import private runtime code into a public site.** Public sites should call a deployed ClawBell API/Worker or a narrow bridge, not the operator's private agent workspace.
 
 ## Ways to use ClawBell
 
@@ -380,9 +390,10 @@ Current limits:
 - storage is local JSONL, not durable multi-instance storage
 - rate limits are in-memory in the Node app and bridge-local in the helper bridge
 - the repo is optimized for self-hosting, not turnkey managed hosting
-- the current UI/example config is still shaped by the first dogfood deployment
-- Ken-site dogfood currently uses a custom Worker copy of the pattern; the cleaner shared integration path is tracked in issues
-- Cloudflare edge hosting plus a separate runtime is an operational pattern, not a finished one-click packaging flow
+- the default UI/example config is intentionally generic but still early
+- headless custom-site integrations are supported, but the API/schema docs are still being hardened
+- widget/modal embed exists, but the one-line install/loader experience is not polished yet
+- Cloudflare edge hosting is supported, but it is still a self-hosted deployment path, not managed hosting
 
 ## Security and secrets
 

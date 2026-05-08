@@ -1,19 +1,9 @@
 {
-  "name": "clawbell-v0",
+  "name": "clawbell",
   "version": "0.1.0",
   "private": true,
+  "description": "Self-hosted public-safe website chat front door for operator-owned agents.",
   "type": "module",
-  "scripts": {
-    "start": "node server.mjs",
-    "digest": "node scripts/operator-digest.mjs",
-    "check:syntax": "node --check server.mjs && node --check src/cloudflare-worker.js && node --check scripts/operator-digest.mjs && node --check scripts/local-openclaw-bridge.mjs",
-    "security:smoke": "node scripts/security-smoke.mjs",
-    "security:smoke:bridge": "node scripts/security-smoke.mjs --bridge",
-    "security:smoke:live": "node scripts/security-smoke.mjs --live-bridge",
-    "cloudflare:dev": "npx wrangler dev",
-    "cloudflare:deploy": "npx wrangler deploy --keep-vars"
-  },
-  "description": "Public-safe website chat front door for operator-owned agents. Early self-hosted v0.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -25,5 +15,25 @@
   "homepage": "https://github.com/kenseals/clawbell#readme",
   "engines": {
     "node": ">=22"
+  },
+  "keywords": [
+    "agent",
+    "openclaw",
+    "chat",
+    "self-hosted",
+    "public-safe",
+    "website",
+    "cloudflare",
+    "bridge"
+  ],
+  "scripts": {
+    "start": "node server.mjs",
+    "digest": "node scripts/operator-digest.mjs",
+    "check:syntax": "node --check server.mjs && node --check src/cloudflare-worker.js && node --check scripts/operator-digest.mjs && node --check scripts/local-openclaw-bridge.mjs",
+    "security:smoke": "node scripts/security-smoke.mjs",
+    "security:smoke:bridge": "node scripts/security-smoke.mjs --bridge",
+    "security:smoke:live": "node scripts/security-smoke.mjs --live-bridge",
+    "cloudflare:dev": "npx wrangler dev",
+    "cloudflare:deploy": "npx wrangler deploy --keep-vars"
   }
 }

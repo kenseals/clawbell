@@ -149,7 +149,9 @@ Possible `source` values:
 - `agent-bridge`: live public-safe bridge answered.
 - `fallback`: fallback mode answered.
 - `safety-filter`: deterministic sensitive-info filter answered.
+- `internal-info-filter`: prompt/internal workspace/config request was refused.
 - `operator-identity-filter`: visitor claimed to be owner/operator/admin and was refused.
+- `action-filter`: public request tried to trigger downloads, commands, messages, account changes, or other external action and was refused.
 
 Frontend rule:
 
@@ -192,6 +194,6 @@ For public launch, ClawBell should make these paths explicit:
 
 - A first-class embed snippet / loader script.
 - A polished demo for widget/modal mode.
-- A stable documented API schema and error/degraded responses.
+- More complete API schema docs, especially error/degraded responses and operational examples.
 - CORS/CSP docs for cross-origin embedding.
 - A clean example of a headless custom UI integration.
