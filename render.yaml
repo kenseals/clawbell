@@ -23,6 +23,8 @@ services:
         sync: false
       - key: ADMIN_TOKEN
         sync: false
+      - key: CLAWBELL_SITE_CONFIG_TOKEN
+        sync: false
       - key: PUBLIC_API_ORIGINS
         sync: false
       - key: MAX_MESSAGE_CHARS
