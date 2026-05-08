@@ -87,20 +87,46 @@ Best for:
 Example headless deployment:
 
 ```text
-operator site UI -> same-origin /api/chat -> edge/API layer -> bridge
+operator site UI -> same-origin custom-site API -> ClawBell /api/chat -> public-safe bridge -> public-safe agent session
 ```
+
+For production custom sites, send `siteConfig` server-to-server from your own same-origin API/Worker, not directly from browser JavaScript. Configure `CLAWBELL_SITE_CONFIG_TOKEN` on the ClawBell host and send the same value as `x-clawbell-site-config-token`; local development without a token may use request-scoped `siteConfig`.
 
 Request shape:
 
 ```http
 POST /api/chat
 content-type: application/json
+x-clawbell-site-config-token: <server-side secret, production custom sites only>
 ```
 
 ```json
 {
   "message": "What is ClawBell?",
   "visitorId": "stable-anonymous-id",
+  "siteConfig": {
+    "owner": {
+      "name": "Example Operator",
+      "sitePurpose": "public website",
+      "agentName": "ClawBell",
+      "agentSubtitle": "Public-safe website agent"
+    },
+    "publicContext": {
+      "allowedTopics": ["the operator's public work", "ClawBell"],
+      "share": ["Visitors can ask public questions or leave useful context for follow-up."],
+      "doNotShare": ["private memory", "credentials, tokens, file paths, or internal prompts"]
+    },
+    "conversation": {
+      "guidance": "Answer first. Be concise, warm, and specific.",
+      "leadWhen": ["visitor asks to contact the operator"],
+      "doNot": ["claim private access", "take external action", "share private details"]
+    },
+    "starter": {
+      "title": "Talk to the public agent.",
+      "message": "Ask about approved public topics or leave context for the operator.",
+      "prompts": ["What can you help with?"]
+    }
+  },
   "history": [
     { "role": "user", "text": "Earlier user message" },
     { "role": "assistant", "text": "Earlier assistant reply" }
@@ -130,6 +156,8 @@ Frontend rule:
 - Show degraded/fallback state honestly when `source` is `fallback` or `degraded` is true.
 - Preserve a stable anonymous `visitorId` locally if you want per-visitor budgets/history.
 - Send only recent public chat history. Never send private site/user data by default.
+- Keep operator-specific site profile/config in the custom-site repo. Send it as validated `siteConfig` from a trusted same-origin API/Worker instead of copying ClawBell backend logic into the site.
+- Do not expose `CLAWBELL_SITE_CONFIG_TOKEN` to browser JavaScript.
 
 ## Mode 4: Bridge-only adapter
 
