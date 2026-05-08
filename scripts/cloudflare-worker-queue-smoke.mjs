@@ -135,11 +135,62 @@ async function testFiltersStayAheadOfQueue() {
   }
 }
 
+async function testBridgeVisitorLimitUx() {
+  resetWorkerStateForTests();
+  const env = makeEnv({ AGENT_BRIDGE_RATE_LIMIT_MAX: '1', AGENT_BRIDGE_GLOBAL_RATE_LIMIT_MAX: '10' });
+  await withMockBridge(async () => {
+    const firstData = await worker.fetch(makeChatRequest('Tell me about ClawBell visitor limit first', 'visitor-limit'), env).then(parseJson);
+    const secondData = await worker.fetch(makeChatRequest('Tell me about ClawBell visitor limit second', 'visitor-limit'), env).then(parseJson);
+
+    assert(firstData.source === 'agent-bridge', 'visitor-limit first request should use live bridge');
+    assert(secondData.source === 'fallback', 'visitor-limit second request should fall back');
+    assert(secondData.bridgeOutcome === 'bridge_rate_limited', 'visitor-limit second request should report bridge_rate_limited');
+    assert(secondData.throttled === true, 'visitor-limit response should be marked throttled');
+    assert(/live-agent message limit|try again/i.test(String(secondData.reply || '')), 'visitor-limit fallback should explain the limit and next step');
+  });
+}
+
+async function testBridgeGlobalLimitUx() {
+  resetWorkerStateForTests();
+  const env = makeEnv({ AGENT_BRIDGE_RATE_LIMIT_MAX: '10', AGENT_BRIDGE_GLOBAL_RATE_LIMIT_MAX: '1' });
+  await withMockBridge(async () => {
+    const firstData = await worker.fetch(makeChatRequest('Tell me about ClawBell global limit first', 'global-1'), env).then(parseJson);
+    const secondData = await worker.fetch(makeChatRequest('Tell me about ClawBell global limit second', 'global-2'), env).then(parseJson);
+
+    assert(firstData.source === 'agent-bridge', 'global-limit first request should use live bridge');
+    assert(secondData.source === 'fallback', 'global-limit second request should fall back');
+    assert(secondData.bridgeOutcome === 'bridge_global_limited', 'global-limit second request should report bridge_global_limited');
+    assert(secondData.throttled === true, 'global-limit response should be marked throttled');
+    assert(/site-wide live-answer limit|try again/i.test(String(secondData.reply || '')), 'global-limit fallback should explain the limit and next step');
+  });
+}
+
+async function testPublicRateLimitUx() {
+  resetWorkerStateForTests();
+  const env = makeEnv({ RATE_LIMIT_MODE: 'memory', RATE_LIMIT_MAX: '1' });
+  await withMockBridge(async () => {
+    const firstResponse = await worker.fetch(makeChatRequest('Tell me about ClawBell public limit first', 'public-1'), env);
+    const secondResponse = await worker.fetch(makeChatRequest('Tell me about ClawBell public limit second', 'public-2'), env);
+    const firstData = await firstResponse.json();
+    const secondData = await secondResponse.json();
+
+    assert(firstResponse.status === 200, 'public-limit first request should be accepted');
+    assert(firstData.source === 'agent-bridge', 'public-limit first request should use live bridge');
+    assert(secondResponse.status === 429, 'public-limit second request should return 429');
+    assert(secondData.bridgeOutcome === 'public_rate_limited', 'public-limit second request should report public_rate_limited');
+    assert(secondData.throttled === true, 'public-limit response should be marked throttled');
+    assert(/slowing requests down|try again/i.test(String(secondData.reply || '')), 'public-limit response should explain the limit and next step');
+  });
+}
+
 const tests = [
   ['queued success', testQueuedSuccess],
   ['queue full', testQueueFull],
   ['queue timeout', testQueueTimeout],
-  ['filters before queue', testFiltersStayAheadOfQueue]
+  ['filters before queue', testFiltersStayAheadOfQueue],
+  ['bridge visitor limit UX', testBridgeVisitorLimitUx],
+  ['bridge global limit UX', testBridgeGlobalLimitUx],
+  ['public rate limit UX', testPublicRateLimitUx]
 ];
 
 for (const [name, test] of tests) {

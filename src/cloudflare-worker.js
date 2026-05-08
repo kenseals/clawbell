@@ -267,8 +267,8 @@ function bridgeLimits(env) {
   return {
     maxConcurrent: Number(env.AGENT_BRIDGE_MAX_CONCURRENT || env.CLAWBELL_BRIDGE_MAX_CONCURRENT || env.SOREN_BRIDGE_MAX_CONCURRENT || 1),
     windowMs: Number(env.AGENT_BRIDGE_RATE_LIMIT_WINDOW_MS || env.CLAWBELL_BRIDGE_RATE_LIMIT_WINDOW_MS || env.SOREN_BRIDGE_RATE_LIMIT_WINDOW_MS || 3600000),
-    perVisitorMax: Number(env.AGENT_BRIDGE_RATE_LIMIT_MAX || env.CLAWBELL_BRIDGE_RATE_LIMIT_MAX || env.SOREN_BRIDGE_RATE_LIMIT_MAX || 4),
-    globalMax: Number(env.AGENT_BRIDGE_GLOBAL_RATE_LIMIT_MAX || env.CLAWBELL_BRIDGE_GLOBAL_RATE_LIMIT_MAX || env.SOREN_BRIDGE_GLOBAL_RATE_LIMIT_MAX || 30)
+    perVisitorMax: Number(env.AGENT_BRIDGE_RATE_LIMIT_MAX || env.CLAWBELL_BRIDGE_RATE_LIMIT_MAX || env.SOREN_BRIDGE_RATE_LIMIT_MAX || 20),
+    globalMax: Number(env.AGENT_BRIDGE_GLOBAL_RATE_LIMIT_MAX || env.CLAWBELL_BRIDGE_GLOBAL_RATE_LIMIT_MAX || env.SOREN_BRIDGE_GLOBAL_RATE_LIMIT_MAX || 150)
   };
 }
 
@@ -363,6 +363,30 @@ function limitedModeReply(message, config = null, reason = 'bridge unavailable')
   return `${reply}\n\nSmall caveat: I’m answering from limited fallback mode right now because the live agent bridge is ${reason}.`;
 }
 
+function retryWindowText(retryAfter) {
+  const seconds = Number(retryAfter || 0);
+  if (!seconds || seconds < 1) return 'shortly';
+  if (seconds < 90) return `in about ${seconds} seconds`;
+  const minutes = Math.ceil(seconds / 60);
+  return `in about ${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
+
+function bridgeLimitFallbackReply(message, config, outcome, retryAfter) {
+  const ownerName = config?.owner?.name || 'the operator';
+  const intro = outcome === 'bridge_global_limited'
+    ? 'The live public agent is taking a short breather because the site-wide live-answer limit was reached.'
+    : outcome === 'bridge_rate_limited'
+      ? 'You’ve hit the live-agent message limit for this visitor session.'
+      : 'The live public agent is temporarily rate-limited.';
+  const guidance = `You can try again ${retryWindowText(retryAfter)}, or leave a note here for ${ownerName} with who you are, what you want them to know, whether you want a reply, and the best way to reach you.`;
+  return `${fallbackReply(message, config)}\n\n${intro} ${guidance}`;
+}
+
+function publicRateLimitReply(config, retryAfter) {
+  const ownerName = config?.owner?.name || 'the operator';
+  return `This public chat is receiving a lot of traffic right now, so I’m slowing requests down for a moment. Try again ${retryWindowText(retryAfter)}, or leave a concise note for ${ownerName} once the chat is available again.`;
+}
+
 function bridgeBusyFallbackReply(message, config, outcome) {
   const ownerName = config?.owner?.name || 'the operator';
   const intro = outcome === 'queue_full'
@@ -422,7 +446,6 @@ async function askAgentPublicSafe(message, env, config, history = [], visitorId 
 
 async function handleChat(request, env) {
   const limit = await checkRateLimit(request, env);
-  if (!limit.ok) return json({ error: 'rate_limited', retryAfter: limit.retryAfter }, 429, { 'retry-after': String(limit.retryAfter) });
   let body;
   try { body = await request.json(); } catch { return json({ error: 'invalid_json' }, 400); }
   const maxMessageChars = Number(env.MAX_MESSAGE_CHARS || 1200);
@@ -438,6 +461,10 @@ async function handleChat(request, env) {
   const visitorId = String(body.visitorId || 'anonymous').slice(0, 120);
   const history = Array.isArray(body.history) ? body.history.slice(-12) : [];
   const noteIntent = /contact|intro|help|talk|time|book|call|meet|note|reply|request/i.test(message);
+  if (!limit.ok) {
+    const retryAfter = limit.retryAfter || 60;
+    return json({ reply: publicRateLimitReply(config, retryAfter), noteIntent, source: 'fallback', degraded: true, throttled: true, retryAfter, bridgeOutcome: 'public_rate_limited' }, 429, { 'retry-after': String(retryAfter) });
+  }
   if (isOperatorImpersonationAttempt(message, config.owner?.name || 'the operator')) return json({ reply: operatorImpersonationReply(config.owner?.name || 'the operator'), noteIntent, source: 'operator-identity-filter' });
   if (isSensitivePersonalInfoRequest(message)) return json({ reply: sensitivePersonalInfoReply(), noteIntent, source: 'safety-filter' });
   if (isInternalInfoRequest(message)) return json({ reply: internalInfoReply(), noteIntent, source: 'internal-info-filter' });
@@ -446,7 +473,18 @@ async function handleChat(request, env) {
   const bridgeEnabled = envBool(env.ENABLE_AGENT_BRIDGE) || envBool(env.ENABLE_CLAWBELL_BRIDGE) || envBool(env.ENABLE_SOREN_BRIDGE);
   if (bridgeEnabled) {
     const bridgeBudget = checkBridgeBudget(request, env, visitorId);
-    if (!bridgeBudget.ok) return json({ reply: limitedModeReply(message, config, bridgeBudget.reason), noteIntent, source: 'fallback', throttled: true, retryAfter: bridgeBudget.retryAfter });
+    if (!bridgeBudget.ok) {
+      console.log(JSON.stringify({ event: 'chat', source: 'fallback', bridgeOutcome: bridgeBudget.reason, noteIntent, visitorId }));
+      return json({
+        reply: bridgeLimitFallbackReply(message, config, bridgeBudget.reason, bridgeBudget.retryAfter),
+        noteIntent,
+        source: 'fallback',
+        degraded: true,
+        throttled: true,
+        retryAfter: bridgeBudget.retryAfter,
+        bridgeOutcome: bridgeBudget.reason
+      });
+    }
     const slot = await acquireBridgeSlot(env);
     if (!slot.ok) {
       console.log(JSON.stringify({ event: 'chat', source: 'fallback', bridgeOutcome: slot.reason, noteIntent, visitorId, queueDepth: bridgeQueueDepth }));

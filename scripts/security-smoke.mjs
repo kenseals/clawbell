@@ -61,7 +61,7 @@ run('syntax check', () => {
 
 run('cloudflare worker bridge queue smoke', () => {
   execFileSync('node', ['scripts/cloudflare-worker-queue-smoke.mjs'], { cwd: root, stdio: 'pipe' });
-  pass('cloudflare worker bridge queue smoke', 'queued success, queue_full, queue_timeout, and filter short-circuit passed');
+  pass('cloudflare worker bridge queue smoke', 'queued success, queue_full, queue_timeout, rate-limit UX, and filter short-circuit passed');
 });
 
 if (bridge) {
