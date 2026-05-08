@@ -46,7 +46,12 @@ Recommended production vars/secrets:
 REQUIRE_ADMIN_AUTH=1
 ADMIN_TOKEN=<long-random-token>
 CLAWBELL_CONFIG_JSON=<operator-public-config-json>
+RATE_LIMIT_MODE=auto
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX=12
 ```
+
+The default `wrangler.jsonc` includes a `RATE_LIMITER` Durable Object binding. With `RATE_LIMIT_MODE=auto`, Worker deployments use that binding for cross-isolate public-chat rate limits. If you remove the binding or set `RATE_LIMIT_MODE=memory`, rate limits become best-effort per Worker isolate.
 
 Optional trusted headless custom-site config:
 
@@ -68,7 +73,7 @@ Worker-mode limitations in this first slice:
 
 - conversation/handoff persistence logs to Worker logs unless a storage binding is added later
 - admin config writes return `501`; update `CLAWBELL_CONFIG_JSON` in Worker vars/secrets instead
-- in-memory rate limits are best-effort per Worker isolate
+- public-chat rate limits are durable only when the `RATE_LIMITER` Durable Object binding is deployed; bridge-specific budgets remain in-memory in the Worker and bridge-local in the helper bridge
 
 ## Option 2: single-service Node host
 
@@ -116,7 +121,7 @@ For headless custom-site mode, keep operator-specific config in the site repo an
 Before public launch:
 
 - `ADMIN_TOKEN` protects admin/config/conversation endpoints.
-- public chat has rate limiting.
+- public chat has rate limiting; Cloudflare Worker deployments should keep the `RATE_LIMITER` Durable Object binding enabled or use an equivalent Cloudflare/WAF control.
 - bridge requests require a long random bearer token.
 - optional Cloudflare Access service-token auth protects the bridge hostname before tunnel forwarding.
 - raw logs and private runtime data are never public.
